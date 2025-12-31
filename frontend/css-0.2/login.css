@@ -1,0 +1,228 @@
+/* ==========================================
+   LOGIN.CSS - Estilos del Login
+   ========================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --color-primario: #2c3e50;
+    --color-secundario: #3498db;
+    --color-exito: #27ae60;
+    --color-error: #e74c3c;
+    --color-fondo: #ecf0f1;
+    --color-blanco: #ffffff;
+    --color-texto: #2c3e50;
+    --color-texto-claro: #7f8c8d;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* ==========================================
+   CONTENEDOR PRINCIPAL
+   ========================================== */
+
+.contenedor-login {
+    width: 100%;
+    max-width: 450px;
+    animation: aparecer 0.5s ease;
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================
+   TARJETA DE LOGIN
+   ========================================== */
+
+.tarjeta-login {
+    background: var(--color-blanco);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================
+   LOGO
+   ========================================== */
+
+.logo-login {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.logo-login i {
+    font-size: 60px;
+    color: var(--color-primario);
+    margin-bottom: 15px;
+}
+
+.logo-login h1 {
+    font-size: 28px;
+    color: var(--color-primario);
+    margin-bottom: 5px;
+}
+
+.logo-login p {
+    color: var(--color-texto-claro);
+    font-size: 16px;
+}
+
+/* ==========================================
+   FORMULARIO
+   ========================================== */
+
+.formulario-login {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.campo-login {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: var(--color-fondo);
+    border-radius: 10px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.campo-login:focus-within {
+    background: #e0e6e8;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.campo-login i {
+    color: var(--color-texto-claro);
+    font-size: 18px;
+    margin-right: 15px;
+}
+
+.campo-login input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-size: 16px;
+    color: var(--color-texto);
+}
+
+.campo-login input::placeholder {
+    color: var(--color-texto-claro);
+}
+
+/* ==========================================
+   MENSAJE DE ERROR
+   ========================================== */
+
+.mensaje-error {
+    background: #fee;
+    border-left: 4px solid var(--color-error);
+    padding: 12px 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: sacudir 0.5s;
+}
+
+@keyframes sacudir {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+.mensaje-error i {
+    color: var(--color-error);
+    font-size: 18px;
+}
+
+.mensaje-error span {
+    color: var(--color-error);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ==========================================
+   BOTÓN
+   ========================================== */
+
+.btn-login {
+    background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-secundario) 100%);
+    color: var(--color-blanco);
+    border: none;
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    margin-top: 10px;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-login:active {
+    transform: translateY(0);
+}
+
+/* ==========================================
+   PIE
+   ========================================== */
+
+.pie-login {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-fondo);
+}
+
+.pie-login p {
+    color: var(--color-texto-claro);
+    font-size: 14px;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 480px) {
+    .tarjeta-login {
+        padding: 30px 20px;
+    }
+    
+    .logo-login h1 {
+        font-size: 24px;
+    }
+    
+    .logo-login i {
+        font-size: 50px;
+    }
+}

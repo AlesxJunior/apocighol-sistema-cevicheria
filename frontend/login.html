@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Apocighol</title>
+    <link rel="stylesheet" href="./css-0.2/login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    
+    <div class="contenedor-login">
+        
+        <div class="tarjeta-login">
+            
+            <!-- Logo -->
+            <div class="logo-login">
+                <i class="fas fa-utensils"></i>
+                <h1>Apocighol E.I.R.L</h1>
+                <p>Panel Administrativo</p>
+            </div>
+            
+            <!-- Formulario -->
+            <form id="formulario-login" class="formulario-login">
+                
+                <div class="campo-login">
+                    <i class="fas fa-user"></i>
+                    <input type="text" 
+                           id="input-usuario" 
+                           placeholder="Usuario" 
+                           autocomplete="username"
+                           required>
+                </div>
+                
+                <div class="campo-login">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" 
+                           id="input-password" 
+                           placeholder="Contraseña"
+                           autocomplete="current-password"
+                           required>
+                </div>
+                
+                <!-- Mensaje de error -->
+                <div id="mensaje-error" class="mensaje-error" style="display: none;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="texto-error"></span>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Iniciar Sesión
+                </button>
+                
+            </form>
+            
+            <!-- Pie -->
+            <div class="pie-login">
+                <p>© 2025 Apocighol - Grupo nº7 LP2</p>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <script src="./js-0.2/login.js"></script>
+</body>
+</html>

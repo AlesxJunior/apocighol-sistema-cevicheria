@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <!-- ===================== META TAGS Y CONFIGURACIÓN ============================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Panel Administrativo - Cevichería Apocighol">
+    <meta name="author" content="Grupo nº7 - LP2">
+    <title>Admin - Apocighol Cevichería</title>
+    
+    <!-- =================== ESTILOS ====================== -->
+    <link rel="stylesheet" href="./css/admin.css">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    
+    <!-- =================== BARRA LATERAL (SIDEBAR) | Menú de navegación principal ================== -->
+    <aside class="barra-lateral">
+
+        <!-- Logo y nombre del negocio -->
+        <div class="logo-contenedor">
+            <i class="fas fa-utensils"></i>
+            <h1 class="logo-texto">Apocighol E.I.R.L</h1>
+            <p class="logo-subtexto">Panel Administrativo</p>
+        </div>
+
+
+        <!-- Navegación principal -->
+
+        <nav class="navegacion-principal">
+            <!---------------- 1 ---------------->
+            <a href="#" class="enlace-nav activo" data-seccion="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <!---------------- 2 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="mesas">
+                <i class="fas fa-table"></i>
+                <span>Mesas</span>
+            </a>
+            <!----------------3 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="pedidos">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Pedidos</span>
+            </a>
+            <!---------------- 4 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="productos">
+                <i class="fas fa-fish"></i>
+                <span>Productos</span>
+            </a>
+            <!---------------- 5 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="caja">
+                <i class="fas fa-cash-register"></i>
+                <span>Caja</span>
+            </a>   
+            <!---------------- 6 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="ventas">
+                <i class="fas fa-receipt"></i>
+                <span>Ventas</span>
+            </a>
+
+            <!----------------- 7 ---------------->
+            <a href="#" class="enlace-nav" data-seccion="inventario">
+                 <i class="fas fa-boxes"></i>
+                 <span>Inventario</span>
+            </a>
+
+            <!----------------- 8 ----------------->
+            <a href="#" class="enlace-nav" data-seccion="compras">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Compras</span>
+            </a>
+
+             <!----------------- 9 ----------------->
+            
+            <a href="#" class="enlace-nav solo-admin" data-seccion="usuarios">
+                <i class="fas fa-users-cog"></i>
+                <span>Gestión de Usuarios</span>
+            </a>
+
+
+        </nav>
+
+
+        <!-- Botón de salir -->
+
+        <div class="pie-barra">
+            <button class="btn-salir" onclick="cerrarSesionUsuario()">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Salir</span>
+            </button>
+        </div>
+
+    </aside>
+
+    <!-- Botón Hamburguesa (solo móvil) -->
+    <button class="btn-hamburguesa" id="btn-menu-movil" onclick="toggleMenuMovil()">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Overlay para cerrar menú -->
+    <div class="overlay-menu" id="overlay-menu" onclick="cerrarMenuMovil()"></div>
+
+    <!-- ================= CONTENIDO PRINCIPAL  | Área donde se muestran los módulos ==================== -->
+    <main class="contenido-principal">
+        
+    <!-- ============= SECCIÓN: DASHBOARD | Resumen y estadísticas del día  ========================= -->
+        <section id="seccion-dashboard" class="seccion activa">
+
+            <div class="encabezado-seccion">
+                <h2>Dashboard</h2>
+                <p class="fecha-actual" id="fecha-actual"></p>
+            </div>
+
+            <!-- Tarjetas de resumen -->
+            <div class="tarjetas-resumen">
+                <!------------- VENTAS  DE HOY --------->
+                <div class="tarjeta-stat">
+
+                    <div class="icono-stat">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="info-stat">
+                        <p class="titulo-stat">Ventas Hoy</p>
+                        <h3 class="valor-stat" id="ventas-hoy">S/. 0.00</h3>
+                    </div>
+
+                </div>
+                <!------------- MESA OCUPADAS ---------->
+                <div class="tarjeta-stat">
+
+                    <div class="icono-stat">
+                        <i class="fas fa-table"></i>
+                    </div>
+
+                    <div class="info-stat">
+                        <p class="titulo-stat">Mesas Ocupadas</p>
+                        <h3 class="valor-stat" id="mesas-ocupadas">0/0</h3>
+                    </div>
+
+                </div>
+                <!------------- PREDIDOS ACTIVOS ------->
+                <div class="tarjeta-stat">
+
+                    <div class="icono-stat">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+
+                    <div class="info-stat">
+                        <p class="titulo-stat">Pedidos Activos</p>
+                        <h3 class="valor-stat" id="pedidos-activos">0</h3>
+                    </div>
+
+                </div>
+                <!------------- TICKET PROMEDIO -------->
+                <div class="tarjeta-stat">
+
+                    <div class="icono-stat">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    
+                    <div class="info-stat">
+                        <p class="titulo-stat">Ticket Promedio</p>
+                        <h3 class="valor-stat" id="ticket-promedio">S/. 0.00</h3>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Contenido adicional del dashboard -->
+            <div id="dashboard-contenido"></div>
+
+        </section>
+
+    <!-- ===================== SECCIÓN: MESAS Gestión del estado de las mesas ================ -->
+        <section id="seccion-mesas" class="seccion">
+
+            <div class="encabezado-seccion">
+                <h2>Gestión de Mesas</h2>
+                <button class="btn btn-primario" onclick="agregarMesa()">
+                    <i class="fas fa-plus"></i> Nueva Mesa
+                </button>
+            </div>
+
+            <!-- Leyenda de estados -->
+            <div class="leyenda-mesas">
+
+                <span class="leyenda-item">
+                    <span class="indicador-disponible"></span> Disponible
+                </span>
+                <span class="leyenda-item">
+                    <span class="indicador-ocupada"></span> Ocupada
+                </span>
+                <!--
+                <span class="leyenda-item">
+                    <span class="indicador-reservada"></span> Reservada
+                </span
+                -->
+                
+            </div>
+
+            <!-- Grid de mesa | SE DARA DINAMICAMENTE DESDE JAVASCRIPT ----->
+            <div class="grid-mesas" id="mesas-contenido"></div>
+        </section>
+
+     <!-- ==================== SECCIÓN: PEDIDOS Toma y gestión de pedidos ============================= -->
+        <section id="seccion-pedidos" class="seccion">
+
+            <div class="encabezado-seccion">
+                <h2>Pedidos</h2>
+                <button class="btn btn-exito" onclick="nuevoPedido()">
+                    <i class="fas fa-plus"></i> Nuevo Pedido
+                </button>
+            </div>
+
+            <!-- Filtros de estado -->
+            <div class="filtros-pedidos">
+                <button class="filtro-btn activo" data-estado="todos"> Todos </button>
+                <button class="filtro-btn" data-estado="pendiente"> Pendientes </button>
+                <button class="filtro-btn" data-estado="preparando"> Preparando </button>
+                <button class="filtro-btn" data-estado="listo"> Listos </button>
+                <button class="filtro-btn" data-estado="servido"> Servidos </button>
+            </div>
+
+            <!-- Lista de pedidos | DINAMICAMENTE DESDE JAVASCRIPT  -->
+            <div class="lista-pedidos" id="pedidos-contenido"></div>
+
+        </section>
+
+    <!-- =================== SECCIÓN: PRODUCTOS Gestión del menú y productos ========================== -->
+
+        <section id="seccion-productos" class="seccion">
+
+            <div class="encabezado-seccion">
+                <h2>Productos / Menú</h2>
+                <button class="btn btn-primario" onclick="nuevoProducto()"> <i class="fas fa-plus"></i> Nuevo Producto </button>
+            </div>
+            
+            <!-- Buscador -->
+            <div class="barra-busqueda-productos">
+                <div class="campo-busqueda">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="buscar-producto" placeholder="Buscar producto por nombre o descripción..."class="input-busqueda-grande">
+                </div>
+            </div>
+            
+            <!-- Filtros por categoría -->
+            <div class="filtros-productos">
+                <button class="filtro-btn activo" data-categoria="todos"><i class="fas fa-list"></i> Todos </button>
+                <button class="filtro-btn" data-categoria="Promociones"><i class="fas fa-tag"></i> Promociones</button>
+                <button class="filtro-btn" data-categoria="Ceviches"><i class="fas fa-fish"></i> Ceviches </button>
+                <button class="filtro-btn" data-categoria="Leches de Tigre"><i class="fas fa-glass-martini"></i> Leches de Tigre</button>
+                <button class="filtro-btn" data-categoria="Causas"><i class="fas fa-cookie"></i> Causas</button>
+                <button class="filtro-btn" data-categoria="Arroces"><i class="fas fa-drumstick-bite"></i> Arroces</button>
+                <button class="filtro-btn" data-categoria="Chicharrones"><i class="fas fa-drumstick-bite"></i> Chicharrones</button>
+                <button class="filtro-btn" data-categoria="Sopas"><i class="fas fa-soup"></i> Sopas</button>
+                <button class="filtro-btn" data-categoria="Adicionales"><i class="fas fa-plus-circle"></i> Adicionales</button>
+                <button class="filtro-btn" data-categoria="Dúos"><i class="fas fa-layer-group"></i> Dúos</button>
+                <button class="filtro-btn" data-categoria="Tríos"><i class="fas fa-layer-group"></i> Tríos</button>
+                <button class="filtro-btn" data-categoria="Bebidas"><i class="fas fa-coffee"></i> Bebidas</button>
+            </div>
+            
+            <!-- Contenido de productos -->
+            <div id="productos-contenido" class="contenedor-productos">
+                <!-- Productos se renderizan aquí dinámicamente -->
+            </div>
+
+        </section>
+
+    <!-- ==================== SECCIÓN: CAJA Cobro y generación de comprobantes ======================== -->
+       <section id="seccion-caja" class="seccion">
+
+            <div class="encabezado-seccion">
+                <h2>Caja</h2>
+                <button class="btn btn-primario" onclick="abrirCaja()" id="btn-abrir-caja"><i class="fas fa-cash-register"></i> Abrir Caja</button>
+            </div>
+            
+            <!-- Estado de Caja Actual -->
+            <div id="caja-estado-actual" class="tarjeta">
+                <!-- Se renderiza dinámicamente DESDE JAVASCRIPT -->
+            </div>
+            
+            <!-- Movimientos del Día -->
+            <div class="tarjeta" style="margin-top: 20px;">
+                <h3 style="margin-bottom: 15px;">📋 Movimientos de Hoy</h3>
+                <div id="caja-movimientos-contenido">
+                    <!-- Se renderiza dinámicamente -->
+                </div>
+            </div>
+            
+            <!-- Historial de Cajas -->
+            <div class="tarjeta" style="margin-top: 20px;">
+                <h3 style="margin-bottom: 15px;">📊 Historial de Cajas Cerradas</h3>
+                <div id="caja-historial-contenido">
+                    <!-- Se renderiza dinámicamente -->
+                </div>
+            </div>
+        </section>
+
+    <!-- ==================== SECCIÓN: VENTAS Historial de ventas y comprobantes ====================== -->
+        <section id="seccion-ventas" class="seccion" >
+            <div class="seccion-header">
+                <h2><i class="fas fa-chart-line"></i> Gestión de Ventas</h2>
+                <p class="subtitulo">Consulta y administra el historial de ventas del negocio</p>
+            </div>
+
+            <!-- FILTROS DE BÚSQUEDA -->
+            <div class="filtros-container">
+
+                <div class="filtros-grupo">
+                    <!---------------- 1 ------------------->
+                    <div class="filtro-item">
+                        <label><i class="fas fa-calendar"></i> Período:</label>
+                        <select id="filtro-periodo-ventas" class="input-field">
+                            <option value="hoy">Hoy</option>
+                            <option value="ayer">Ayer</option>
+                            <option value="ultimos7">Últimos 7 días</option>
+                            <option value="ultimos30">Últimos 30 días</option>
+                            <option value="mes-actual">Mes actual</option>
+                            <option value="personalizado">Rango personalizado</option>
+                        </select>
+                    </div>
+                    <!---------------- 2 ------------------->
+                    <div class="filtro-item" id="rango-personalizado-container" style="display: none;">
+                        <label><i class="fas fa-calendar-alt"></i> Desde:</label>
+                        <input type="date" id="fecha-desde" class="input-field">
+                        <label><i class="fas fa-calendar-alt"></i> Hasta:</label>
+                        <input type="date" id="fecha-hasta" class="input-field">
+                    </div>
+                    <!---------------- 3 ------------------->
+                    <div class="filtro-item">
+                        <label><i class="fas fa-search"></i> Buscar:</label>
+                        <input type="text" id="buscar-venta" class="input-field" placeholder="ID de venta o mesa...">
+                    </div>
+                    <!---------------- 4 ------------------->
+                    <div class="filtro-item">
+                        <button id="btn-limpiar-filtros" class="btn btn-secondary">
+                            <i class="fas fa-eraser"></i> Limpiar filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESUMEN DE VENTAS -->
+            <div class="resumen-ventas">
+                <!---------------- 1 ------------------->
+                <div class="tarjeta-resumen">
+                    <i class="fas fa-dollar-sign"></i>
+                    <div class="info">
+                        <span class="label">Total Vendido</span>
+                        <span class="valor" id="total-vendido-periodo">S/. 0.00</span>
+                    </div>
+                </div>
+                <!---------------- 2 ------------------->
+                <div class="tarjeta-resumen">
+                    <i class="fas fa-shopping-cart"></i>
+                    <div class="info">
+                        <span class="label">Cantidad de Ventas</span>
+                        <span class="valor" id="cantidad-ventas-periodo">0</span>
+                    </div>
+                </div>
+                <!---------------- 3 ------------------->
+                <div class="tarjeta-resumen">
+                    <i class="fas fa-receipt"></i>
+                    <div class="info">
+                        <span class="label">Ticket Promedio</span>
+                        <span class="valor" id="ticket-promedio-periodo">S/. 0.00</span>
+                    </div>
+                </div>
+                <!---------------- 4 ------------------->
+                <div class="tarjeta-resumen">
+                    <i class="fas fa-chart-line"></i>
+                    <div class="info">
+                        <span class="label">Venta Máxima</span>
+                        <span class="valor" id="venta-maxima-periodo">S/. 0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA DE VENTAS -->
+            <div class="tabla-container">
+
+                <table class="tabla-datos">
+                    <thead>
+                        <tr>
+                            <th>ID Venta</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Mesa</th>
+                            <th>Total</th>
+                            <th>Método Pago</th>
+                            <th>Comprobante</th>
+                            <th>Responsable</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-ventas-body">
+                        <!-- Aquí se cargarán las ventas dinámicamente -->
+                    </tbody>
+                </table>
+                
+                <div id="mensaje-sin-ventas" class="mensaje-vacio" style="display: none;">
+                    <i class="fas fa-inbox"></i>
+                    <p>No se encontraron ventas para el período seleccionado</p>
+                </div>
+
+            </div>
+
+            <!-- PAGINACIÓN -->
+            <div class="paginacion-container" id="paginacion-ventas" style="display: none;">
+                <button id="btn-pagina-anterior" class="btn btn-secondary"><i class="fas fa-chevron-left"></i> Anterior</button>
+                <span id="info-pagina">Página 1 de 1</span>
+                <button id="btn-pagina-siguiente" class="btn btn-secondary">Siguiente <i class="fas fa-chevron-right"></i></button>
+            </div>
+        </section>
+
+    <!-- =================== SECCIÓN: INVENTARIO Control de stock de insumos ========================== -->
+    <section id="seccion-inventario" class="seccion">
+        <div class="encabezado-seccion">
+            <h2>Inventario / Stock</h2>
+            <button class="btn btn-primario" onclick="nuevoInsumo()">
+                <i class="fas fa-plus"></i> Nuevo Insumo
+            </button>
+        </div>
+        
+        <!-- Tabs de navegación -->
+        <div class="tabs-inventario">
+            <button class="tab-btn activo" onclick="cambiarTabInventario('insumos')">
+                <i class="fas fa-boxes"></i> Insumos
+            </button>
+            <button class="tab-btn" onclick="cambiarTabInventario('recetas')">
+                <i class="fas fa-utensils"></i> Recetas
+            </button>
+        </div>
+        
+        <!-- TAB: INSUMOS -->
+        <div id="tab-insumos" class="tab-content activo">
+            <!-- Buscador -->
+            <div class="barra-busqueda-productos">
+                <div class="campo-busqueda">
+                    <i class="fas fa-search"></i>
+                    <input type="text" 
+                        id="buscar-insumo" 
+                        placeholder="Buscar insumo..."
+                        onkeyup="buscarInsumo(this.value)"
+                        class="input-busqueda-grande">
+                </div>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="filtros-productos">
+                <button class="filtro-btn activo" onclick="filtrarInsumos('todos')">
+                    <i class="fas fa-list"></i> Todos
+                </button>
+                <button class="filtro-btn" onclick="filtrarInsumos('stock-bajo')">
+                    <i class="fas fa-exclamation-triangle"></i> Stock Bajo
+                </button>
+            </div>
+            
+            <!-- Lista de insumos -->
+            <div id="lista-insumos" class="contenedor-inventario"></div>
+        </div>
+        
+        <!-- TAB: RECETAS -->
+        <div id="tab-recetas" class="tab-content">
+            <div class="encabezado-tab">
+                <p>Asigna insumos a cada plato del menú</p>
+                <button class="btn btn-primario" onclick="asignarReceta()">
+                    <i class="fas fa-plus"></i> Asignar Receta
+                </button>
+            </div>
+            
+            <!-- Lista de recetas -->
+            <div id="lista-recetas"></div>
+        </div>
+    </section>
+
+    <!-- ================ SECCIÓN: COMPRAS Gestión de compras y proveedores ===================== -->
+    <section id="seccion-compras" class="seccion">
+        <div class="encabezado-seccion">
+            <h2>Compras</h2>
+            <button class="btn btn-exito" onclick="nuevaCompra()">
+                <i class="fas fa-plus"></i> Nueva Compra
+            </button>
+        </div>
+        
+        <!-- Tabs de navegación -->
+        <div class="tabs-inventario">
+            <button class="tab-btn activo" onclick="cambiarTabCompras('proveedores')">
+                <i class="fas fa-truck"></i> Proveedores
+            </button>
+            <button class="tab-btn" onclick="cambiarTabCompras('historial')">
+                <i class="fas fa-history"></i> Historial de Compras
+            </button>
+        </div>
+        
+        <!-- TAB: PROVEEDORES -->
+        <div id="tab-proveedores" class="tab-content activo">
+            <div class="encabezado-tab">
+                <p>Gestiona tus proveedores de insumos</p>
+                <button class="btn btn-primario" onclick="nuevoProveedor()">
+                    <i class="fas fa-plus"></i> Nuevo Proveedor
+                </button>
+            </div>
+            
+            <!-- Lista de proveedores -->
+            <div id="lista-proveedores"></div>
+        </div>
+        
+        <!-- TAB: HISTORIAL -->
+        <div id="tab-historial-compras" class="tab-content">
+            <!-- Filtros de fecha -->
+            <div class="filtros-compras">
+                <div class="campo-busqueda">
+                    <label>Desde:</label>
+                    <input type="date" id="fecha-desde-compras">
+                </div>
+                <div class="campo-busqueda">
+                    <label>Hasta:</label>
+                    <input type="date" id="fecha-hasta-compras">
+                </div>
+                <button class="btn btn-secundario" onclick="filtrarCompras()">
+                    <i class="fas fa-filter"></i> Filtrar
+                </button>
+            </div>
+            
+            <!-- Lista de compras -->
+            <div id="lista-compras-historial"></div>
+        </div>
+    </section>
+
+    <!-- =================== SECCIÓN: USUARIOS - Gestión de empleados del sistema ========================== -->
+    <section id="seccion-usuarios" class="seccion">
+        <div class="encabezado-seccion">
+            <h2><i class="fas fa-users-cog"></i> Gestión de Usuarios</h2>
+            <button class="btn btn-primario" onclick="nuevoUsuario()">
+                <i class="fas fa-plus"></i> Nuevo Usuario
+            </button>
+        </div>
+        
+        <!-- Resumen de usuarios -->
+        <div class="resumen-usuarios">
+            <div class="tarjeta-stat">
+                <div class="icono-stat"><i class="fas fa-users"></i></div>
+                <div class="info-stat">
+                    <p class="titulo-stat">Total Usuarios</p>
+                    <h3 class="valor-stat" id="total-usuarios">0</h3>
+                </div>
+            </div>
+            <div class="tarjeta-stat">
+                <div class="icono-stat"><i class="fas fa-user-check"></i></div>
+                <div class="info-stat">
+                    <p class="titulo-stat">Activos</p>
+                    <h3 class="valor-stat" id="usuarios-activos">0</h3>
+                </div>
+            </div>
+            <div class="tarjeta-stat">
+                <div class="icono-stat"><i class="fas fa-user-times"></i></div>
+                <div class="info-stat">
+                    <p class="titulo-stat">Inactivos</p>
+                    <h3 class="valor-stat" id="usuarios-inactivos">0</h3>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filtros por rol -->
+        <div class="filtros-usuarios">
+            <button class="filtro-btn activo" data-rol="todos">
+                <i class="fas fa-list"></i> Todos
+            </button>
+            <button class="filtro-btn" data-rol="ADMIN">
+                <i class="fas fa-user-shield"></i> Administradores
+            </button>
+            <button class="filtro-btn" data-rol="CAJERO">
+                <i class="fas fa-cash-register"></i> Cajeros
+            </button>
+            <button class="filtro-btn" data-rol="MESERO">
+                <i class="fas fa-concierge-bell"></i> Meseros
+            </button>
+            <button class="filtro-btn" data-rol="COCINA">
+                <i class="fas fa-utensils"></i> Cocina
+            </button>
+        </div>
+        
+        <!-- Lista de usuarios -->
+        <div id="usuarios-contenido" class="contenedor-usuarios">
+            <!-- Se renderiza dinámicamente -->
+        </div>
+    </section>
+
+    <!-- =================== MODAL: DETALLE DE VENTA ========================= -->
+        <div id="modal-detalle-venta" class="modal">
+
+            <div class="modal-contenido modal-grande">
+
+                <div class="modal-header">
+                    <h3><i class="fas fa-file-invoice"></i> Detalle de Venta</h3>
+                    <button class="btn-cerrar-modal" onclick="cerrarModalDetalleVenta()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- Información de la venta -->
+                    <div class="info-venta-header">
+                        <!----------- 1 ------------->
+                        <div class="info-item">
+                            <label>ID Venta:</label>
+                            <span id="detalle-id-venta">-</span>
+                        </div>
+                        <!----------- 2 ------------->
+                        <div class="info-item">
+                            <label>Fecha:</label>
+                            <span id="detalle-fecha-venta">-</span>
+                        </div>
+                        <!----------- 3 ------------->
+                        <div class="info-item">
+                            <label>Hora:</label>
+                            <span id="detalle-hora-venta">-</span>
+                        </div>
+                        <!----------- 4 ------------->
+                        <div class="info-item">
+                            <label>Mesa:</label>
+                            <span id="detalle-mesa-venta">-</span>
+                        </div>
+                        <!----------- 5 ------------->
+                        <div class="info-item">
+                            <label>Responsable:</label>
+                            <span id="detalle-responsable-venta">-</span>
+                        </div>
+                        <!----------- 6 ------------->
+                        <div class="info-item">
+                            <label>Método de Pago:</label>
+                            <span id="detalle-metodo-pago">-</span>
+                        </div>
+
+                        <!-- 🔥 NUEVO: Info de comprobante -->
+                        <div id="detalle-comprobante-info"></div>
+                        <!-- 🔥 NUEVO: Info de vuelto (solo efectivo) -->
+                        <div id="detalle-vuelto-info"></div>
+                    </div>
+
+                    <!-- Productos vendidos -->
+                    <div class="productos-venta-container">
+                        
+                        <h4>Productos Vendidos</h4>
+                        <table class="tabla-datos">
+
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unit.</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalle-productos-body">
+                                <!-- Productos dinámicos -->
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    <!-- Total -->
+                    <div class="total-venta-container">
+                        <div class="total-item">
+                            <span class="label">TOTAL:</span>
+                            <span class="valor" id="detalle-total-venta">S/. 0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Notas si existen -->
+                    <div id="detalle-notas-container" style="display: none;">
+                        <h4>Notas:</h4>
+                        <p id="detalle-notas-venta"></p>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="cerrarModalDetalleVenta()"><i class="fas fa-times"></i> Cerrar</button>
+                    <button class="btn btn-primary" onclick="imprimirComprobante()"><i class="fas fa-print"></i> Imprimir Comprobante</button>
+                </div>
+
+            </div>
+
+        </div>
+
+    <!-- ======================= MODAL GENÉRICO | Para formularios y detalles ======================== -->
+    <div class="modal" id="modal-general">
+
+        <div class="modal-contenido">
+
+            <div class="modal-encabezado">
+                <h3 id="modal-titulo">Título</h3>
+                <button class="btn-cerrar-modal" onclick="cerrarModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-cuerpo" id="modal-cuerpo">
+                <!-- Contenido dinámico -->
+            </div>
+
+            <div class="modal-pie">
+                <button class="btn btn-secundario" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn btn-primario" id="modal-btn-confirmar">Confirmar</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ====================== SCRIPTS ========================= -->
+    <!-- Script base (funciones comunes) - SE CARGA PRIMERO -->
+    <script src="./js/admin-core.js"></script>
+    <script src="./js/admin-navegation.js"></script>
+    <script src="./js/auth.js"></script>
+    <!-- Scripts de módulos - SE CARGAN DESPUÉS -->
+    <script src="./js/modulos/dashboard.js"></script>
+    <script src="./js/modulos/mesas.js"></script>
+    <script src="./js/modulos/pedidos.js"></script>
+    <script src="./js/modulos/productos.js"></script>
+    <script src="./js/modulos/caja.js"></script>
+    <script src="./js/modulos/ventas.js"></script>
+    <script src="./js/modulos/inventario.js"></script>
+    <script src="./js/modulos/compras.js"></script>
+    <script src="./js/modulos/usuarios.js"></script>
+    
+
+</body>
+</html>
