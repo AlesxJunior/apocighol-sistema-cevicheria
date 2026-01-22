@@ -1,109 +1,74 @@
 /* ==========================================
-   INVENTARIO.JS - REFACTORIZADO
-   Módulo de gestión de inventario
+   INVENTARIO.JS - CONECTADO CON BACKEND
+   🔥 BOTÓN ASIGNAR RECETA FUNCIONANDO
    ========================================== */
 
 (function() {
     // ==========================================
-    // VARIABLES PRIVADAS DEL MÓDULO
+    // VARIABLES PRIVADAS
     // ==========================================
     
+    const API_URL = 'http://localhost:8085/api';
     let insumosData = [];
-    let recetasData = [];
+    let productosData = [];
     let tabActualInventario = 'insumos';
     let filtroActualInsumos = 'todos';
     
     // ==========================================
-    // FUNCIÓN DE INICIALIZACIÓN PÚBLICA
+    // INICIALIZACIÓN
     // ==========================================
     
-    function inicializar() {
+    async function inicializar() {
         console.log('📦 Inicializando módulo Inventario...');
         
-        cargarInsumos();
-        cargarRecetas();
+        await cargarInsumos();
+        await cargarProductos();
+        
         renderizarInsumos();
         renderizarRecetas();
         
         console.log('✅ Módulo Inventario inicializado');
     }
-    function inicializar() {
-    console.log('📦 Inicializando módulo Inventario...');
     
-    cargarInsumos();
+    // ==========================================
+    // CARGAR DATOS
+    // ==========================================
     
-    // 🔥 NUEVO: Si no hay insumos, crear ejemplos
-    if (insumosData.length === 0) {
-        crearInsumosDeEjemplo();
-    }
-    
-    cargarRecetas();
-    renderizarInsumos();
-    renderizarRecetas();
-    
-    console.log('✅ Módulo Inventario inicializado');
-}
-
-// 🔥 NUEVA FUNCIÓN
-function crearInsumosDeEjemplo() {
-    console.log('📦 Creando insumos de ejemplo...');
-    
-    const insumosEjemplo = [
-        {
-            id: 'INS-001',
-            nombre: 'Limón',
-            unidadMedida: 'unidad',
-            stockActual: 65,
-            stockMinimo: 20,
-            fechaCreacion: obtenerFechaActual()
-        },
-        {
-            id: 'INS-002',
-            nombre: 'Pescado',
-            unidadMedida: 'gramos',
-            stockActual: 500,
-            stockMinimo: 200,
-            fechaCreacion: obtenerFechaActual()
-        },
-        {
-            id: 'INS-003',
-            nombre: 'Cebolla',
-            unidadMedida: 'unidad',
-            stockActual: 89,
-            stockMinimo: 50,
-            fechaCreacion: obtenerFechaActual()
+    async function cargarInsumos() {
+        try {
+            const response = await fetch(`${API_URL}/insumos`);
+            if (response.ok) {
+                insumosData = await response.json();
+                console.log(`📊 ${insumosData.length} insumos cargados`);
+            }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            insumosData = [];
         }
-    ];
-    
-    insumosData = insumosEjemplo;
-    guardarDatos('insumos', insumosData);
-    
-    console.log('✅ 3 insumos de ejemplo creados');
-}
-    // ==========================================
-    // FUNCIONES DE CARGA
-    // ==========================================
-    
-    function cargarInsumos() {
-        insumosData = obtenerDatos('insumos') || [];
-        console.log(`📊 ${insumosData.length} insumos cargados`);
     }
     
-    function cargarRecetas() {
-        recetasData = obtenerDatos('recetas') || [];
-        console.log(`📊 ${recetasData.length} recetas cargadas`);
-    }
-    
-    function guardarInsumos() {
-        guardarDatos('insumos', insumosData);
-    }
-    
-    function guardarRecetas() {
-        guardarDatos('recetas', recetasData);
+    async function cargarProductos() {
+        try {
+            const response = await fetch(`${API_URL}/productos`);
+            if (response.ok) {
+                const datos = await response.json();
+                productosData = datos.map(p => ({
+                    id: p.idProducto,
+                    codigo: p.codigoProducto,
+                    nombre: p.nombreProducto,
+                    categoria: p.categoriaProducto,
+                    precio: p.precioProducto
+                }));
+                console.log(`📊 ${productosData.length} productos cargados`);
+            }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            productosData = [];
+        }
     }
     
     // ==========================================
-    // GESTIÓN DE TABS
+    // TABS
     // ==========================================
     
     function cambiarTabInventario(tab) {
@@ -117,18 +82,18 @@ function crearInsumosDeEjemplo() {
         });
         
         if (tab === 'insumos') {
-            document.querySelector('#seccion-inventario .tab-btn:nth-child(1)').classList.add('activo');
-            document.getElementById('tab-insumos').classList.add('activo');
+            document.querySelector('#seccion-inventario .tab-btn:nth-child(1)')?.classList.add('activo');
+            document.getElementById('tab-insumos')?.classList.add('activo');
             renderizarInsumos();
         } else if (tab === 'recetas') {
-            document.querySelector('#seccion-inventario .tab-btn:nth-child(2)').classList.add('activo');
-            document.getElementById('tab-recetas').classList.add('activo');
+            document.querySelector('#seccion-inventario .tab-btn:nth-child(2)')?.classList.add('activo');
+            document.getElementById('tab-recetas')?.classList.add('activo');
             renderizarRecetas();
         }
     }
     
     // ==========================================
-    // RENDERIZADO DE INSUMOS
+    // RENDERIZADO INSUMOS
     // ==========================================
     
     function renderizarInsumos() {
@@ -138,13 +103,18 @@ function crearInsumosDeEjemplo() {
         let insumosFiltrados = insumosData;
         
         if (filtroActualInsumos === 'stock-bajo') {
-            insumosFiltrados = insumosData.filter(i => i.stockActual <= i.stockMinimo);
+            insumosFiltrados = insumosData.filter(i => 
+                parseFloat(i.stockActual) <= parseFloat(i.stockMinimo)
+            );
         }
         
         if (insumosFiltrados.length === 0) { 
             contenedor.innerHTML = `
                 <div class="mensaje-vacio">
                     <p>No hay insumos registrados</p>
+                    <button class="btn btn-primario" onclick="nuevoInsumo()">
+                        <i class="fas fa-plus"></i> Agregar Primer Insumo
+                    </button>
                 </div>
             `;
             return;
@@ -158,44 +128,45 @@ function crearInsumosDeEjemplo() {
     }
     
     function crearTarjetaInsumo(insumo) {
-        const stockBajo = insumo.stockActual <= insumo.stockMinimo;
-        const claseBajo = stockBajo ? 'stock-bajo' : '';
-        const porcentaje = (insumo.stockActual / insumo.stockMinimo) * 100;
+        const stockActual = parseFloat(insumo.stockActual) || 0;
+        const stockMinimo = parseFloat(insumo.stockMinimo) || 1;
+        const stockBajo = stockActual <= stockMinimo;
+        const porcentaje = Math.min((stockActual / stockMinimo) * 100, 100);
         
         return `
-            <div class="tarjeta-insumo ${claseBajo}">
+            <div class="tarjeta-insumo ${stockBajo ? 'stock-bajo' : ''}">
                 ${stockBajo ? '<div class="alerta-stock"><i class="fas fa-exclamation-triangle"></i> Stock Bajo</div>' : ''}
                 
                 <div class="insumo-header">
-                    <h4>${insumo.nombre}</h4>
-                    <span class="badge badge-secondary">${insumo.unidadMedida}</span>
+                    <h4>${insumo.nombreInsumo}</h4>
+                    <span class="badge badge-secondary">${insumo.unidadMedida || 'unidades'}</span>
                 </div>
                 
                 <div class="insumo-stock">
                     <div class="stock-numeros">
                         <div class="stock-actual">
                             <span class="label">Stock Actual:</span>
-                            <span class="valor ${stockBajo ? 'texto-peligro' : 'texto-exito'}">${insumo.stockActual}</span>
+                            <span class="valor ${stockBajo ? 'texto-peligro' : 'texto-exito'}">${stockActual}</span>
                         </div>
                         <div class="stock-minimo">
                             <span class="label">Stock Mínimo:</span>
-                            <span class="valor">${insumo.stockMinimo}</span>
+                            <span class="valor">${stockMinimo}</span>
                         </div>
                     </div>
                     
                     <div class="barra-stock">
-                        <div class="barra-progreso" style="width: ${Math.min(porcentaje, 100)}%; background: ${stockBajo ? 'var(--color-peligro)' : 'var(--color-exito)'};"></div>
+                        <div class="barra-progreso" style="width: ${porcentaje}%; background: ${stockBajo ? 'var(--color-peligro)' : 'var(--color-exito)'};"></div>
                     </div>
                 </div>
                 
                 <div class="insumo-acciones">
-                    <button class="btn btn-pequeño btn-primario" onclick="ajustarStockModal('${insumo.id}')" title="Ajustar stock">
+                    <button class="btn btn-pequeño btn-primario" onclick="ajustarStockModal(${insumo.idInsumo})" title="Ajustar stock">
                         <i class="fas fa-plus-minus"></i>
                     </button>
-                    <button class="btn btn-pequeño btn-secundario" onclick="editarInsumo('${insumo.id}')" title="Editar">
+                    <button class="btn btn-pequeño btn-secundario" onclick="editarInsumo(${insumo.idInsumo})" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-pequeño btn-peligro" onclick="eliminarInsumo('${insumo.id}')" title="Eliminar">
+                    <button class="btn btn-pequeño btn-peligro" onclick="eliminarInsumo(${insumo.idInsumo})" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -204,7 +175,7 @@ function crearInsumosDeEjemplo() {
     }
     
     // ==========================================
-    // CRUD DE INSUMOS
+    // CRUD INSUMOS
     // ==========================================
     
     function nuevoInsumo() {
@@ -218,7 +189,7 @@ function crearInsumosDeEjemplo() {
                 <div class="campo-form">
                     <label>Unidad de Medida: *</label>
                     <select id="unidad-insumo">
-                        <option value="unidad">Unidad</option>
+                        <option value="unidades">Unidades</option>
                         <option value="kilogramos">Kilogramos (kg)</option>
                         <option value="gramos">Gramos (g)</option>
                         <option value="litros">Litros (L)</option>
@@ -247,7 +218,7 @@ function crearInsumosDeEjemplo() {
         }
     }
     
-    function confirmarNuevoInsumo() {
+    async function confirmarNuevoInsumo() {
         const nombre = document.getElementById('nombre-insumo').value.trim();
         const unidad = document.getElementById('unidad-insumo').value;
         const stockInicial = parseFloat(document.getElementById('stock-inicial-insumo').value) || 0;
@@ -263,42 +234,48 @@ function crearInsumosDeEjemplo() {
             return;
         }
         
-        const nuevoInsumo = {
-            id: generarId('INS'),
-            nombre: nombre,
-            unidadMedida: unidad,
-            stockActual: stockInicial,
-            stockMinimo: stockMinimo,
-            fechaCreacion: obtenerFechaActual()
-        };
-        
-        insumosData.push(nuevoInsumo);
-        guardarInsumos();
-        
-        cerrarModal();
-        renderizarInsumos();
-        
-        mostrarNotificacion(`Insumo "${nombre}" creado`, 'exito');
+        try {
+            const response = await fetch(`${API_URL}/insumos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nombreInsumo: nombre,
+                    unidadMedida: unidad,
+                    stockActual: stockInicial,
+                    stockMinimo: stockMinimo
+                })
+            });
+            
+            if (response.ok) {
+                cerrarModal();
+                await cargarInsumos();
+                renderizarInsumos();
+                mostrarNotificacion(`Insumo "${nombre}" creado`, 'exito');
+            } else {
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al crear insumo', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            mostrarNotificacion('Error de conexión', 'error');
+        }
     }
     
     function editarInsumo(idInsumo) {
-        const insumo = insumosData.find(i => i.id === idInsumo);
-        if (!insumo) {
-            mostrarNotificacion('Insumo no encontrado', 'error');
-            return;
-        }
+        const insumo = insumosData.find(i => i.idInsumo === idInsumo);
+        if (!insumo) return;
         
         let contenido = `
             <div class="formulario-insumo">
                 <div class="campo-form">
                     <label>Nombre del Insumo: *</label>
-                    <input type="text" id="nombre-insumo-edit" value="${insumo.nombre}">
+                    <input type="text" id="nombre-insumo-edit" value="${insumo.nombreInsumo}">
                 </div>
                 
                 <div class="campo-form">
                     <label>Unidad de Medida: *</label>
                     <select id="unidad-insumo-edit">
-                        <option value="unidad" ${insumo.unidadMedida === 'unidad' ? 'selected' : ''}>Unidad</option>
+                        <option value="unidades" ${insumo.unidadMedida === 'unidades' ? 'selected' : ''}>Unidades</option>
                         <option value="kilogramos" ${insumo.unidadMedida === 'kilogramos' ? 'selected' : ''}>Kilogramos (kg)</option>
                         <option value="gramos" ${insumo.unidadMedida === 'gramos' ? 'selected' : ''}>Gramos (g)</option>
                         <option value="litros" ${insumo.unidadMedida === 'litros' ? 'selected' : ''}>Litros (L)</option>
@@ -313,59 +290,67 @@ function crearInsumosDeEjemplo() {
             </div>
         `;
         
-        abrirModal('Editar Insumo', contenido, function() {
+        abrirModal('Editar Insumo', contenido, async function() {
             const nombre = document.getElementById('nombre-insumo-edit').value.trim();
             const unidad = document.getElementById('unidad-insumo-edit').value;
             const stockMinimo = parseFloat(document.getElementById('stock-minimo-insumo-edit').value);
             
-            if (!nombre || !stockMinimo || stockMinimo < 0) {
-                mostrarNotificacion('Completa los campos correctamente', 'error');
-                return;
+            try {
+                const response = await fetch(`${API_URL}/insumos/${idInsumo}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombreInsumo: nombre,
+                        unidadMedida: unidad,
+                        stockMinimo: stockMinimo
+                    })
+                });
+                
+                if (response.ok) {
+                    cerrarModal();
+                    await cargarInsumos();
+                    renderizarInsumos();
+                    mostrarNotificacion('Insumo actualizado', 'exito');
+                }
+            } catch (error) {
+                mostrarNotificacion('Error de conexión', 'error');
             }
-            
-            insumo.nombre = nombre;
-            insumo.unidadMedida = unidad;
-            insumo.stockMinimo = stockMinimo;
-            
-            guardarInsumos();
-            cerrarModal();
-            renderizarInsumos();
-            
-            mostrarNotificacion('Insumo actualizado', 'exito');
         });
         
-        const btnConfirmar = document.getElementById('modal-btn-confirmar');
-        if (btnConfirmar) {
-            btnConfirmar.style.display = 'inline-flex';
-            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Actualizar';
-        }
+        document.getElementById('modal-btn-confirmar').style.display = 'inline-flex';
     }
     
-    function eliminarInsumo(idInsumo) {
-        const insumo = insumosData.find(i => i.id === idInsumo);
+    async function eliminarInsumo(idInsumo) {
+        const insumo = insumosData.find(i => i.idInsumo === idInsumo);
         if (!insumo) return;
         
-        if (!confirmar(`¿Eliminar el insumo "${insumo.nombre}"?`)) {
-            return;
-        }
+        if (!confirmar(`¿Eliminar el insumo "${insumo.nombreInsumo}"?`)) return;
         
-        const index = insumosData.findIndex(i => i.id === idInsumo);
-        if (index !== -1) {
-            insumosData.splice(index, 1);
-            guardarInsumos();
-            renderizarInsumos();
-            mostrarNotificacion('Insumo eliminado', 'exito');
+        try {
+            const response = await fetch(`${API_URL}/insumos/${idInsumo}`, { method: 'DELETE' });
+            
+            if (response.ok) {
+                await cargarInsumos();
+                renderizarInsumos();
+                mostrarNotificacion('Insumo eliminado', 'exito');
+            }
+        } catch (error) {
+            mostrarNotificacion('Error de conexión', 'error');
         }
     }
     
+    // ==========================================
+    // AJUSTAR STOCK
+    // ==========================================
+    
     function ajustarStockModal(idInsumo) {
-        const insumo = insumosData.find(i => i.id === idInsumo);
+        const insumo = insumosData.find(i => i.idInsumo === idInsumo);
         if (!insumo) return;
         
         let contenido = `
             <div class="formulario-insumo">
                 <p style="text-align: center; margin-bottom: 20px;">
-                    <strong>${insumo.nombre}</strong><br>
+                    <strong>${insumo.nombreInsumo}</strong><br>
                     Stock Actual: <span style="color: var(--color-primario); font-size: 20px;">${insumo.stockActual} ${insumo.unidadMedida}</span>
                 </p>
                 
@@ -382,15 +367,10 @@ function crearInsumosDeEjemplo() {
                     <label>Cantidad:</label>
                     <input type="number" id="cantidad-ajuste" min="0" step="0.01" placeholder="0">
                 </div>
-                
-                <div class="campo-form">
-                    <label>Motivo (opcional):</label>
-                    <input type="text" id="motivo-ajuste" placeholder="Ej: Compra, Merma, Corrección">
-                </div>
             </div>
         `;
         
-        abrirModal('Ajustar Stock', contenido, function() {
+        abrirModal('Ajustar Stock', contenido, async function() {
             const tipo = document.getElementById('tipo-ajuste').value;
             const cantidad = parseFloat(document.getElementById('cantidad-ajuste').value);
             
@@ -399,101 +379,97 @@ function crearInsumosDeEjemplo() {
                 return;
             }
             
-            let nuevoStock = insumo.stockActual;
-            
-            if (tipo === 'sumar') {
-                nuevoStock += cantidad;
-            } else if (tipo === 'restar') {
-                nuevoStock -= cantidad;
-                if (nuevoStock < 0) nuevoStock = 0;
-            } else if (tipo === 'establecer') {
-                nuevoStock = cantidad;
+            try {
+                let endpoint = '';
+                let body = {};
+                
+                if (tipo === 'sumar') {
+                    endpoint = `${API_URL}/insumos/${idInsumo}/aumentar-stock`;
+                    body = { cantidad: cantidad };
+                } else if (tipo === 'restar') {
+                    endpoint = `${API_URL}/insumos/${idInsumo}/disminuir-stock`;
+                    body = { cantidad: cantidad };
+                } else {
+                    endpoint = `${API_URL}/insumos/${idInsumo}/ajustar-stock`;
+                    body = { nuevoStock: cantidad };
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                if (response.ok) {
+                    cerrarModal();
+                    await cargarInsumos();
+                    renderizarInsumos();
+                    mostrarNotificacion('Stock ajustado', 'exito');
+                }
+            } catch (error) {
+                mostrarNotificacion('Error de conexión', 'error');
             }
-            
-            insumo.stockActual = nuevoStock;
-            guardarInsumos();
-            
-            cerrarModal();
-            renderizarInsumos();
-            
-            mostrarNotificacion(`Stock ajustado: ${insumo.nombre}`, 'exito');
         });
         
-        const btnConfirmar = document.getElementById('modal-btn-confirmar');
-        if (btnConfirmar) {
-            btnConfirmar.style.display = 'inline-flex';
-            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Ajustar';
-        }
+        document.getElementById('modal-btn-confirmar').style.display = 'inline-flex';
     }
-    
-    // ==========================================
-    // FILTROS Y BÚSQUEDA
-    // ==========================================
     
     function filtrarInsumos(filtro) {
         filtroActualInsumos = filtro;
-        
-        document.querySelectorAll('#seccion-inventario .filtro-btn').forEach(btn => {
-            btn.classList.remove('activo');
-        });
-        
-        if (filtro === 'todos') {
-            document.querySelector('#seccion-inventario .filtro-btn:nth-child(1)').classList.add('activo');
-        } else {
-            document.querySelector('#seccion-inventario .filtro-btn:nth-child(2)').classList.add('activo');
-        }
-        
         renderizarInsumos();
     }
     
-    function buscarInsumo(termino) {
-        if (!termino || termino.trim() === '') {
-            renderizarInsumos();
-            return;
-        }
-        
-        const contenedor = document.getElementById('lista-insumos');
-        const insumosFiltrados = insumosData.filter(i => 
-            i.nombre.toLowerCase().includes(termino.toLowerCase())
-        );
-        
-        if (insumosFiltrados.length === 0) {
-            contenedor.innerHTML = '<div class="mensaje-vacio"><p>No se encontraron insumos</p></div>';
-            return;
-        }
-        
-        contenedor.innerHTML = `
-            <div class="grid-insumos">
-                ${insumosFiltrados.map(insumo => crearTarjetaInsumo(insumo)).join('')}
-            </div>
-        `;
-    }
-    
     // ==========================================
-    // GESTIÓN DE RECETAS
+    // 🔥 RECETAS - RENDERIZADO
     // ==========================================
     
-    function renderizarRecetas() {
+    async function renderizarRecetas() {
         const contenedor = document.getElementById('lista-recetas');
         if (!contenedor) return;
         
-        const productos = obtenerDatos('productos') || [];
+        await cargarProductos();
         
-        if (productos.length === 0) {
+        if (productosData.length === 0) {
             contenedor.innerHTML = '<div class="mensaje-vacio"><p>No hay productos en el menú</p></div>';
             return;
         }
         
-        contenedor.innerHTML = `
-            <div class="lista-recetas">
-                ${productos.map(producto => crearTarjetaReceta(producto)).join('')}
-            </div>
-        `;
+        let html = '<div class="lista-recetas">';
+        
+        for (const producto of productosData) {
+            html += await crearTarjetaReceta(producto);
+        }
+        
+        html += '</div>';
+        contenedor.innerHTML = html;
     }
     
-    function crearTarjetaReceta(producto) {
-        const receta = recetasData.find(r => r.idProducto === producto.id);
-        const tieneReceta = receta && receta.insumos.length > 0;
+    async function crearTarjetaReceta(producto) {
+        let recetaHtml = '<p style="color: #999; font-style: italic;">Sin receta asignada</p>';
+        let tieneReceta = false;
+        
+        try {
+            const response = await fetch(`${API_URL}/recetas/producto/${producto.id}`);
+            if (response.ok) {
+                const receta = await response.json();
+                if (receta && receta.length > 0) {
+                    tieneReceta = true;
+                    recetaHtml = `
+                        <div class="receta-insumos">
+                            <strong>Insumos:</strong>
+                            <ul>
+                                ${receta.map(r => {
+                                    const insumo = insumosData.find(i => i.idInsumo === r.idInsumo);
+                                    return `<li>${r.cantidadNecesaria} ${insumo?.unidadMedida || ''} - ${insumo?.nombreInsumo || 'Insumo'}</li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error cargando receta:', error);
+        }
         
         return `
             <div class="tarjeta-receta">
@@ -502,55 +478,37 @@ function crearInsumosDeEjemplo() {
                         <h4>${producto.nombre}</h4>
                         <span class="badge badge-secondary">${producto.categoria}</span>
                     </div>
-                    <button class="btn btn-pequeño btn-primario" onclick="editarReceta('${producto.id}')">
+                    <button class="btn btn-pequeño btn-primario" onclick="editarReceta(${producto.id})">
                         <i class="fas ${tieneReceta ? 'fa-edit' : 'fa-plus'}"></i>
                         ${tieneReceta ? 'Editar' : 'Asignar'}
                     </button>
                 </div>
-                
-                ${tieneReceta ? `
-                    <div class="receta-insumos">
-                        <strong>Insumos:</strong>
-                        <ul>
-                            ${receta.insumos.map(ins => {
-                                const insumo = insumosData.find(i => i.id === ins.idInsumo);
-                                return `<li>${ins.cantidad} ${ins.unidad} - ${insumo ? insumo.nombre : 'Insumo no encontrado'}</li>`;
-                            }).join('')}
-                        </ul>
-                    </div>
-                ` : `
-                    <p style="color: #999; font-style: italic;">Sin receta asignada</p>
-                `}
+                ${recetaHtml}
             </div>
         `;
     }
     
-    function editarReceta(idProducto) {
-        const productos = obtenerDatos('productos') || [];
+    // ==========================================
+    // 🔥 ASIGNAR RECETA - FUNCIONAL
+    // ==========================================
+    
+    async function asignarReceta() {
+        // Abrir modal para seleccionar producto y asignar receta
+        await cargarProductos();
         
-        if (productos.length === 0) {
-            mostrarNotificacion('No hay productos en el menú', 'error');
+        if (productosData.length === 0) {
+            mostrarNotificacion('No hay productos disponibles', 'error');
             return;
-        }
-        
-        let productoSeleccionado = null;
-        let recetaExistente = null;
-        
-        if (idProducto) {
-            productoSeleccionado = productos.find(p => p.id === idProducto);
-            recetaExistente = recetasData.find(r => r.idProducto === idProducto);
         }
         
         let contenido = `
             <div class="formulario-receta">
                 <div class="campo-form">
-                    <label>Producto: *</label>
-                    <select id="producto-receta" ${idProducto ? 'disabled' : ''}>
+                    <label>Seleccionar Producto: *</label>
+                    <select id="producto-receta-select">
                         <option value="">-- Selecciona un producto --</option>
-                        ${productos.map(p => `
-                            <option value="${p.id}" ${p.id === idProducto ? 'selected' : ''}>
-                                ${p.nombre}
-                            </option>
+                        ${productosData.map(p => `
+                            <option value="${p.id}">${p.codigo} - ${p.nombre}</option>
                         `).join('')}
                     </select>
                 </div>
@@ -559,45 +517,99 @@ function crearInsumosDeEjemplo() {
                 
                 <h4>Insumos de la Receta:</h4>
                 <div id="insumos-receta-container">
-                    ${recetaExistente && recetaExistente.insumos.length > 0 ? 
-                        recetaExistente.insumos.map((ins, index) => crearFilaInsumoReceta(ins, index)).join('') 
-                        : crearFilaInsumoReceta(null, 0)
-                    }
+                    ${crearFilaInsumoReceta(null, 0)}
                 </div>
                 
-                <button class="btn btn-secundario" onclick="agregarFilaInsumoReceta()" style="margin-top: 10px;">
+                <button type="button" class="btn btn-secundario" onclick="agregarFilaInsumoReceta()" style="margin-top: 10px;">
                     <i class="fas fa-plus"></i> Agregar Insumo
                 </button>
             </div>
         `;
         
-        abrirModal('Asignar Receta', contenido, function() {
-            confirmarReceta(idProducto);
+        abrirModal('Asignar Receta a Producto', contenido, async function() {
+            const idProducto = document.getElementById('producto-receta-select').value;
+            if (!idProducto) {
+                mostrarNotificacion('Selecciona un producto', 'error');
+                return;
+            }
+            await confirmarReceta(parseInt(idProducto));
         });
         
         const btnConfirmar = document.getElementById('modal-btn-confirmar');
         if (btnConfirmar) {
             btnConfirmar.style.display = 'inline-flex';
-            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Guardar';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Guardar Receta';
         }
     }
     
-    function crearFilaInsumoReceta(insumo, index) {
+    async function editarReceta(idProducto) {
+        const producto = productosData.find(p => p.id === idProducto);
+        if (!producto) {
+            mostrarNotificacion('Producto no encontrado', 'error');
+            return;
+        }
+        
+        // Cargar receta existente
+        let recetaExistente = [];
+        try {
+            const response = await fetch(`${API_URL}/recetas/producto/${idProducto}`);
+            if (response.ok) {
+                recetaExistente = await response.json();
+            }
+        } catch (error) {
+            console.error('Error cargando receta:', error);
+        }
+        
+        let contenido = `
+            <div class="formulario-receta">
+                <div class="campo-form">
+                    <label>Producto:</label>
+                    <input type="text" value="${producto.codigo} - ${producto.nombre}" disabled style="background: #f5f5f5;">
+                </div>
+                
+                <hr>
+                
+                <h4>Insumos de la Receta:</h4>
+                <div id="insumos-receta-container">
+                    ${recetaExistente.length > 0 ? 
+                        recetaExistente.map((r, index) => crearFilaInsumoReceta(r, index)).join('') 
+                        : crearFilaInsumoReceta(null, 0)
+                    }
+                </div>
+                
+                <button type="button" class="btn btn-secundario" onclick="agregarFilaInsumoReceta()" style="margin-top: 10px;">
+                    <i class="fas fa-plus"></i> Agregar Insumo
+                </button>
+            </div>
+        `;
+        
+        abrirModal(`Receta: ${producto.nombre}`, contenido, async function() {
+            await confirmarReceta(idProducto);
+        });
+        
+        const btnConfirmar = document.getElementById('modal-btn-confirmar');
+        if (btnConfirmar) {
+            btnConfirmar.style.display = 'inline-flex';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Guardar Receta';
+        }
+    }
+    
+    function crearFilaInsumoReceta(recetaItem, index) {
         return `
             <div class="fila-insumo-receta" data-index="${index}">
                 <select class="insumo-select">
                     <option value="">-- Selecciona insumo --</option>
                     ${insumosData.map(i => `
-                        <option value="${i.id}" ${insumo && insumo.idInsumo === i.id ? 'selected' : ''}>
-                            ${i.nombre} (${i.unidadMedida})
+                        <option value="${i.idInsumo}" ${recetaItem && recetaItem.idInsumo === i.idInsumo ? 'selected' : ''}>
+                            ${i.nombreInsumo} (${i.unidadMedida})
                         </option>
                     `).join('')}
                 </select>
                 
                 <input type="number" class="cantidad-input" placeholder="Cantidad" 
-                       min="0" step="0.01" value="${insumo ? insumo.cantidad : ''}">
+                       min="0" step="0.01" value="${recetaItem ? recetaItem.cantidadNecesaria : ''}">
                 
-                <button class="btn btn-peligro btn-pequeño" onclick="eliminarFilaInsumoReceta(${index})">
+                <button type="button" class="btn btn-peligro btn-pequeño" onclick="eliminarFilaInsumoReceta(${index})">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -617,16 +629,9 @@ function crearInsumosDeEjemplo() {
         }
     }
     
-    function confirmarReceta(idProductoExistente) {
-        const idProducto = idProductoExistente || document.getElementById('producto-receta').value;
-        
-        if (!idProducto) {
-            mostrarNotificacion('Selecciona un producto', 'error');
-            return;
-        }
-        
+    async function confirmarReceta(idProducto) {
         const filas = document.querySelectorAll('.fila-insumo-receta');
-        const insumosReceta = [];
+        const insumos = [];
         
         filas.forEach(fila => {
             const select = fila.querySelector('.insumo-select');
@@ -636,71 +641,39 @@ function crearInsumosDeEjemplo() {
             const cantidad = parseFloat(cantidadInput.value);
             
             if (idInsumo && cantidad > 0) {
-                const insumo = insumosData.find(i => i.id === idInsumo);
-                insumosReceta.push({
-                    idInsumo: idInsumo,
-                    cantidad: cantidad,
-                    unidad: insumo.unidadMedida
+                insumos.push({
+                    idInsumo: parseInt(idInsumo),
+                    cantidad: cantidad
                 });
             }
         });
         
-        if (insumosReceta.length === 0) {
+        if (insumos.length === 0) {
             mostrarNotificacion('Agrega al menos un insumo', 'error');
             return;
         }
         
-        const indexReceta = recetasData.findIndex(r => r.idProducto === idProducto);
-        const producto = obtenerDatos('productos').find(p => p.id === idProducto);
-        
-        const receta = {
-            idProducto: idProducto,
-            nombreProducto: producto.nombre,
-            insumos: insumosReceta
-        };
-        
-        if (indexReceta !== -1) {
-            recetasData[indexReceta] = receta;
-        } else {
-            recetasData.push(receta);
-        }
-        
-        guardarRecetas();
-        cerrarModal();
-        renderizarRecetas();
-        
-        mostrarNotificacion('Receta guardada', 'exito');
-    }
-    
-    // ==========================================
-    // FUNCIÓN PÚBLICA: DESCONTAR INSUMOS
-    // ==========================================
-    
-    window.descontarInsumosDeVenta = function(productos) {
-        console.log('📦 Descontando insumos de la venta...');
-        
-        productos.forEach(prod => {
-            const receta = recetasData.find(r => r.idProducto === prod.id);
+        try {
+            const response = await fetch(`${API_URL}/recetas/producto/${idProducto}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ insumos: insumos })
+            });
             
-            if (receta && receta.insumos) {
-                receta.insumos.forEach(insReceta => {
-                    const insumo = insumosData.find(i => i.id === insReceta.idInsumo);
-                    
-                    if (insumo) {
-                        const cantidadTotal = insReceta.cantidad * prod.cantidad;
-                        insumo.stockActual -= cantidadTotal;
-                        
-                        if (insumo.stockActual < 0) insumo.stockActual = 0;
-                        
-                        console.log(`   - ${insumo.nombre}: -${cantidadTotal} ${insumo.unidadMedida} (quedan ${insumo.stockActual})`);
-                    }
-                });
+            if (response.ok) {
+                cerrarModal();
+                renderizarRecetas();
+                mostrarNotificacion('Receta guardada correctamente', 'exito');
+                console.log('✅ Receta asignada en BD');
+            } else {
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al guardar receta', 'error');
             }
-        });
-        
-        guardarInsumos();
-        console.log('✅ Insumos descontados correctamente');
-    };
+        } catch (error) {
+            console.error('❌ Error:', error);
+            mostrarNotificacion('Error de conexión', 'error');
+        }
+    }
     
     // ==========================================
     // EXPORTAR FUNCIONES GLOBALES
@@ -712,25 +685,26 @@ function crearInsumosDeEjemplo() {
     window.eliminarInsumo = eliminarInsumo;
     window.ajustarStockModal = ajustarStockModal;
     window.filtrarInsumos = filtrarInsumos;
-    window.buscarInsumo = buscarInsumo;
+    window.asignarReceta = asignarReceta;  // 🔥 NUEVA FUNCIÓN
     window.editarReceta = editarReceta;
     window.agregarFilaInsumoReceta = agregarFilaInsumoReceta;
     window.eliminarFilaInsumoReceta = eliminarFilaInsumoReceta;
     
-    // ==========================================
-    // EXPORTAR API PÚBLICA DEL MÓDULO
-    // ==========================================
-    
     window.Inventario = {
-        inicializar: inicializar
+        inicializar: inicializar,
+        cargarInsumos: cargarInsumos,
+        renderizarInsumos: renderizarInsumos,
+        renderizarRecetas: renderizarRecetas
     };
     
-    console.log('✅ Módulo Inventario cargado');
+    console.log('✅ Módulo Inventario cargado - Modo API REST');
 })();
 
-// ESTILOS (compactados)
+// ==========================================
+// ESTILOS
+// ==========================================
 const estilosInventario = document.createElement('style');
 estilosInventario.textContent = `
-    .tabs-inventario{display:flex;gap:10px;margin:20px 0;border-bottom:2px solid #ecf0f1}.tab-btn{background:none;border:none;padding:12px 20px;cursor:pointer;color:#7f8c8d;font-weight:500;transition:all .3s;border-bottom:3px solid transparent}.tab-btn.activo{color:var(--color-primario);border-bottom-color:var(--color-primario)}.tab-btn:hover{color:var(--color-primario)}.tab-content{display:none}.tab-content.activo{display:block}.grid-insumos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:20px}.tarjeta-insumo{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative;transition:all .3s}.tarjeta-insumo:hover{box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translateY(-3px)}.tarjeta-insumo.stock-bajo{border-left:4px solid var(--color-peligro)}.alerta-stock{background:var(--color-peligro);color:white;padding:5px 10px;border-radius:5px;font-size:12px;margin-bottom:10px;display:inline-block}.insumo-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.insumo-header h4{margin:0;color:var(--color-texto)}.insumo-stock{margin:15px 0}.stock-numeros{display:flex;justify-content:space-between;margin-bottom:10px}.stock-actual,.stock-minimo{display:flex;flex-direction:column;gap:5px}.stock-actual .label,.stock-minimo .label{font-size:12px;color:#7f8c8d}.stock-actual .valor,.stock-minimo .valor{font-size:20px;font-weight:bold}.barra-stock{background:#ecf0f1;height:8px;border-radius:10px;overflow:hidden}.barra-progreso{height:100%;transition:width .3s}.insumo-acciones{display:flex;gap:5px;justify-content:flex-end;margin-top:15px}.lista-recetas{display:flex;flex-direction:column;gap:15px}.tarjeta-receta{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}.receta-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.receta-header h4{margin:0 0 5px 0}.receta-insumos{background:#f8f9fa;padding:15px;border-radius:8px;margin-top:15px}.receta-insumos ul{margin:10px 0 0 20px}.receta-insumos li{margin:5px 0}.fila-insumo-receta{display:flex;gap:10px;margin:10px 0;align-items:center}.fila-insumo-receta .insumo-select{flex:2;padding:8px;border:1px solid #ddd;border-radius:5px}.fila-insumo-receta .cantidad-input{flex:1;padding:8px;border:1px solid #ddd;border-radius:5px}.btn-pequeño{padding:8px 12px;font-size:13px}
+    .tabs-inventario{display:flex;gap:10px;margin:20px 0;border-bottom:2px solid #ecf0f1}.tab-btn{background:none;border:none;padding:12px 20px;cursor:pointer;color:#7f8c8d;font-weight:500;transition:all .3s;border-bottom:3px solid transparent}.tab-btn.activo{color:var(--color-primario);border-bottom-color:var(--color-primario)}.tab-btn:hover{color:var(--color-primario)}.tab-content{display:none}.tab-content.activo{display:block}.grid-insumos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:20px}.tarjeta-insumo{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative;transition:all .3s}.tarjeta-insumo:hover{box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translateY(-3px)}.tarjeta-insumo.stock-bajo{border-left:4px solid var(--color-peligro)}.alerta-stock{background:var(--color-peligro);color:white;padding:5px 10px;border-radius:5px;font-size:12px;margin-bottom:10px;display:inline-block}.insumo-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.insumo-header h4{margin:0;color:var(--color-texto)}.insumo-stock{margin:15px 0}.stock-numeros{display:flex;justify-content:space-between;margin-bottom:10px}.stock-actual,.stock-minimo{display:flex;flex-direction:column;gap:5px}.stock-actual .label,.stock-minimo .label{font-size:12px;color:#7f8c8d}.stock-actual .valor,.stock-minimo .valor{font-size:20px;font-weight:bold}.barra-stock{background:#ecf0f1;height:8px;border-radius:10px;overflow:hidden}.barra-progreso{height:100%;transition:width .3s}.insumo-acciones{display:flex;gap:5px;justify-content:flex-end;margin-top:15px}.lista-recetas{display:flex;flex-direction:column;gap:15px}.tarjeta-receta{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1)}.receta-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.receta-header h4{margin:0 0 5px 0}.receta-insumos{background:#f8f9fa;padding:15px;border-radius:8px;margin-top:15px}.receta-insumos ul{margin:10px 0 0 20px}.receta-insumos li{margin:5px 0}.fila-insumo-receta{display:flex;gap:10px;margin:10px 0;align-items:center}.fila-insumo-receta .insumo-select{flex:2;padding:8px;border:1px solid #ddd;border-radius:5px}.fila-insumo-receta .cantidad-input{flex:1;padding:8px;border:1px solid #ddd;border-radius:5px}.btn-pequeño{padding:8px 12px;font-size:13px}.mensaje-vacio{text-align:center;padding:40px;color:#7f8c8d}
 `;
 document.head.appendChild(estilosInventario);

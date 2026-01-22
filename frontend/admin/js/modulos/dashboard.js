@@ -1,510 +1,261 @@
-/**
- * ═══════════════════════════════════════════════════════════
- * MÓDULO: DASHBOARD - CONECTADO A API REST
- * 🔥 Mesas y Pedidos desde API MySQL
- * ═══════════════════════════════════════════════════════════
- */
+/* ==========================================
+   DASHBOARD.JS - CONECTADO CON BACKEND
+   🔥 LEE DATOS DESDE API
+   ========================================== */
 
 (function() {
+    const API_URL = 'http://localhost:8085/api';
     
-    // URLs de API
-    const API_MESAS = 'http://localhost:8085/api/mesas';
-    const API_PEDIDOS = 'http://localhost:8085/api/pedidos';
-    
-    let intervaloActualizacion = null;
-    let mesasData = [];
-    let pedidosData = [];
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
     
     async function inicializar() {
-        console.log('📊 Dashboard inicializado (API)');
+        console.log('📊 Inicializando Dashboard...');
         
-        actualizarFechaActual();
-        await actualizarDashboard();
-        detenerActualizacionAutomatica();
+        await cargarEstadisticas();
+        await cargarMesasOcupadas();
+        await cargarPedidosActivos();
         
-        intervaloActualizacion = setInterval(async () => {
-            await actualizarDashboard();
-        }, 5000);
+        // Actualizar cada 30 segundos
+        setInterval(async () => {
+            await cargarEstadisticas();
+            await cargarMesasOcupadas();
+            await cargarPedidosActivos();
+        }, 30000);
         
-        console.log('📊 Dashboard con actualización automática cada 5s (API)');
-    }
-    
-    function detenerActualizacionAutomatica() {
-        if (intervaloActualizacion) {
-            clearInterval(intervaloActualizacion);
-            intervaloActualizacion = null;
-            console.log('⏸️ Actualización automática del Dashboard detenida');
-        }
-    }
-    
-    function actualizarFechaActual() {
-        const fechaElemento = document.getElementById('fecha-actual');
-        if (!fechaElemento) return;
-        
-        const ahora = new Date();
-        const opciones = { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        };
-        
-        fechaElemento.textContent = ahora.toLocaleDateString('es-PE', opciones);
+        console.log('✅ Dashboard inicializado');
     }
     
     // ==========================================
-    // 🔥 CARGAR DATOS DESDE API
+    // 🔥 CARGAR ESTADÍSTICAS DESDE API
     // ==========================================
     
-    async function cargarMesasDesdeAPI() {
+    async function cargarEstadisticas() {
         try {
-            const response = await fetch(API_MESAS);
-            if (!response.ok) throw new Error('Error al cargar mesas');
-            
-            const mesasAPI = await response.json();
-            
-            mesasData = mesasAPI.map(m => ({
-                id: m.idMesa,
-                numero: m.numeroMesa,
-                capacidad: m.capacidadMesa,
-                estado: m.estadoMesa || 'disponible',
-                cantidadPersonas: m.personasActuales || 0,
-                mesero: m.meseroAsignado || null,
-                horaInicio: m.horaOcupacionMesa || null,
-                totalGastado: parseFloat(m.totalConsumoMesa) || 0
-            }));
-            
-            return mesasData;
-        } catch (error) {
-            console.error('❌ Error cargando mesas:', error);
-            return [];
-        }
-    }
-    
-    async function cargarPedidosDesdeAPI() {
-        try {
-            const response = await fetch(API_PEDIDOS);
-            if (!response.ok) throw new Error('Error al cargar pedidos');
-            
-            const pedidosAPI = await response.json();
-            
-            pedidosData = pedidosAPI.map(p => ({
-                id: p.codigoPedido,
-                idBackend: p.idPedido,
-                mesa: p.numeroMesa,
-                mesero: p.nombreMesero || 'Sin asignar',
-                estado: p.estadoPedido || 'pendiente',
-                fecha: p.fechaPedido,
-                hora: p.horaPedido ? p.horaPedido.substring(0, 5) : '--:--',
-                total: parseFloat(p.totalPedido) || 0,
-                productos: p.productos || []
-            }));
-            
-            return pedidosData;
-        } catch (error) {
-            console.error('❌ Error cargando pedidos:', error);
-            return [];
-        }
-    }
-    
-    // ==========================================
-    // ACTUALIZAR DASHBOARD
-    // ==========================================
-    
-    async function actualizarDashboard() {
-        // 🔥 Cargar datos desde API
-        await cargarMesasDesdeAPI();
-        await cargarPedidosDesdeAPI();
-        
-        actualizarTarjetasResumen();
-        renderizarMesasOcupadas();
-    }
-    
-    function actualizarTarjetasResumen() {
-        const cajaActual = obtenerDatos('cajaActual'); // Caja sigue en localStorage
-        
-        // Ventas hoy (localStorage por ahora)
-        const ventasHoy = cajaActual ? cajaActual.totalIngresos : 0;
-        const ventasHoyEl = document.getElementById('ventas-hoy');
-        if (ventasHoyEl) ventasHoyEl.textContent = formatearMoneda(ventasHoy);
-        
-        // 🔥 Mesas ocupadas desde API
-        const mesasOcupadas = mesasData.filter(m => m.estado === 'ocupada').length;
-        const totalMesas = mesasData.length;
-        const mesasOcupadasEl = document.getElementById('mesas-ocupadas');
-        if (mesasOcupadasEl) mesasOcupadasEl.textContent = `${mesasOcupadas}/${totalMesas}`;
-        
-        // 🔥 Pedidos activos desde API
-        const pedidosActivos = pedidosData.filter(p => p.estado !== 'servido').length;
-        const pedidosActivosEl = document.getElementById('pedidos-activos');
-        if (pedidosActivosEl) pedidosActivosEl.textContent = pedidosActivos;
-        
-        // Ticket promedio (localStorage por ahora)
-        let ticketPromedio = 0;
-        if (cajaActual && cajaActual.movimientos) {
-            const ventas = cajaActual.movimientos.filter(m => m.tipo === 'venta');
-            if (ventas.length > 0) {
-                const totalVentas = ventas.reduce((sum, v) => sum + v.monto, 0);
-                ticketPromedio = totalVentas / ventas.length;
+            // 1. Obtener ventas de caja
+            let ventasHoy = 0;
+            try {
+                const cajaResponse = await fetch(`${API_URL}/caja/estadisticas`);
+                if (cajaResponse.ok) {
+                    const cajaData = await cajaResponse.json();
+                    ventasHoy = parseFloat(cajaData.ventasHoy || cajaData.totalVentas || 0);
+                }
+            } catch (e) {
+                console.error('Error cargando caja:', e);
             }
+            
+            // 2. Obtener mesas ocupadas
+            let mesasOcupadas = 0;
+            let totalMesas = 15;
+            try {
+                const mesasResponse = await fetch(`${API_URL}/mesas`);
+                if (mesasResponse.ok) {
+                    const mesas = await mesasResponse.json();
+                    totalMesas = mesas.length;
+                    mesasOcupadas = mesas.filter(m => 
+                        (m.estadoMesa || m.estado) === 'ocupada'
+                    ).length;
+                }
+            } catch (e) {
+                console.error('Error cargando mesas:', e);
+            }
+            
+            // 3. Obtener pedidos activos
+            let pedidosActivos = 0;
+            try {
+                const pedidosResponse = await fetch(`${API_URL}/pedidos/hoy`);
+                if (pedidosResponse.ok) {
+                    const pedidos = await pedidosResponse.json();
+                    pedidosActivos = pedidos.length;
+                }
+            } catch (e) {
+                console.error('Error cargando pedidos:', e);
+            }
+            
+            // 4. Calcular ticket promedio
+            let ticketPromedio = 0;
+            if (pedidosActivos > 0 && ventasHoy > 0) {
+                ticketPromedio = ventasHoy / pedidosActivos;
+            }
+            
+            // Actualizar UI
+            actualizarTarjeta('ventas-hoy', `S/. ${ventasHoy.toFixed(2)}`);
+            actualizarTarjeta('mesas-ocupadas', `${mesasOcupadas}/${totalMesas}`);
+            actualizarTarjeta('pedidos-activos', pedidosActivos);
+            actualizarTarjeta('ticket-promedio', `S/. ${ticketPromedio.toFixed(2)}`);
+            
+        } catch (error) {
+            console.error('❌ Error cargando estadísticas:', error);
         }
-        const ticketPromedioEl = document.getElementById('ticket-promedio');
-        if (ticketPromedioEl) ticketPromedioEl.textContent = formatearMoneda(ticketPromedio);
     }
     
-    function renderizarMesasOcupadas() {
-        const contenedor = document.getElementById('dashboard-contenido');
+    function actualizarTarjeta(id, valor) {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.textContent = valor;
+        }
+    }
+    
+    // ==========================================
+    // CARGAR MESAS OCUPADAS
+    // ==========================================
+    
+    async function cargarMesasOcupadas() {
+        const contenedor = document.getElementById('lista-mesas-ocupadas');
         if (!contenedor) return;
         
-        // 🔥 Usar datos de API
-        const mesasOcupadas = mesasData.filter(m => m.estado === 'ocupada');
-        
-        let html = '<div class="dashboard-seccion">';
-        html += '<h3><i class="fas fa-table"></i> Mesas Ocupadas</h3>';
-        
-        if (mesasOcupadas.length === 0) {
-            html += '<div class="mensaje-vacio"><p>No hay mesas ocupadas</p></div>';
-        } else {
-            html += '<div class="lista-dashboard">';
-            mesasOcupadas.forEach(mesa => {
-                const tiempoOcupado = calcularTiempoTranscurrido(mesa.horaInicio);
+        try {
+            const response = await fetch(`${API_URL}/mesas`);
+            if (response.ok) {
+                const mesas = await response.json();
+                const ocupadas = mesas.filter(m => (m.estadoMesa || m.estado) === 'ocupada');
                 
-                html += `
-                    <div class="item-dashboard">
-                        <div class="item-info">
-                            <div class="item-titulo">
-                                <i class="fas fa-chair"></i>
-                                <strong>Mesa ${mesa.numero}</strong>
-                            </div>
-                            <div class="item-detalles">
-                                <span><i class="fas fa-user"></i> ${mesa.mesero || 'Sin asignar'}</span>
-                                <span><i class="fas fa-users"></i> ${mesa.cantidadPersonas} personas</span>
-                                <span><i class="fas fa-clock"></i> ${tiempoOcupado}</span>
-                            </div>
-                        </div>
-                        <div class="item-valor">
-                            ${formatearMoneda(mesa.totalGastado)}
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-        }
-        
-        html += '</div>';
-        html += renderizarPedidosActivosHTML();
-        html += renderizarEstadoCajaHTML();
-        
-        contenedor.innerHTML = html;
-    }
-    
-    function renderizarPedidosActivosHTML() {
-        // 🔥 Usar datos de API
-        const pedidosActivos = pedidosData.filter(p => p.estado !== 'servido');
-        
-        let html = '<div class="dashboard-seccion">';
-        html += '<h3><i class="fas fa-clipboard-list"></i> Pedidos Activos</h3>';
-        
-        if (pedidosActivos.length === 0) {
-            html += '<div class="mensaje-vacio"><p>No hay pedidos activos</p></div>';
-        } else {
-            html += '<div class="lista-dashboard">';
-            pedidosActivos.forEach(pedido => {
-                const estadoClass = `badge-${pedido.estado}`;
+                if (ocupadas.length === 0) {
+                    contenedor.innerHTML = '<p class="sin-datos">No hay mesas ocupadas</p>';
+                    return;
+                }
                 
-                html += `
-                    <div class="item-dashboard">
-                        <div class="item-info">
-                            <div class="item-titulo">
-                                <i class="fas fa-receipt"></i>
-                                <strong>${pedido.id}</strong>
-                                <span class="badge ${estadoClass}">${pedido.estado.toUpperCase()}</span>
+                contenedor.innerHTML = ocupadas.map(mesa => {
+                    const numero = mesa.numeroMesa || mesa.numero;
+                    const mesero = mesa.mesero || 'Sin asignar';
+                    const personas = mesa.cantidadPersonas || 0;
+                    const total = parseFloat(mesa.totalConsumoMesa || mesa.totalGastado || 0);
+                    const tiempo = calcularTiempo(mesa.horaInicio);
+                    
+                    return `
+                        <div class="item-mesa-ocupada">
+                            <div class="mesa-info">
+                                <i class="fas fa-utensils"></i>
+                                <strong>Mesa ${numero}</strong>
                             </div>
-                            <div class="item-detalles">
-                                <span><i class="fas fa-chair"></i> Mesa ${pedido.mesa}</span>
-                                <span><i class="fas fa-user"></i> ${pedido.mesero}</span>
-                                <span><i class="fas fa-clock"></i> ${pedido.hora}</span>
+                            <div class="mesa-detalles">
+                                <span><i class="fas fa-user"></i> ${mesero}</span>
+                                <span><i class="fas fa-users"></i> ${personas} personas</span>
+                                <span><i class="fas fa-clock"></i> ${tiempo}</span>
                             </div>
+                            <div class="mesa-total">S/. ${total.toFixed(2)}</div>
                         </div>
-                        <div class="item-valor">
-                            ${formatearMoneda(pedido.total)}
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
+                    `;
+                }).join('');
+            }
+        } catch (error) {
+            console.error('Error cargando mesas:', error);
+            contenedor.innerHTML = '<p class="sin-datos">Error al cargar mesas</p>';
         }
-        
-        html += '</div>';
-        
-        return html;
     }
     
-    function renderizarEstadoCajaHTML() {
-        const cajaActual = obtenerDatos('cajaActual'); // Caja sigue en localStorage
-        
-        let html = '<div class="dashboard-seccion">';
-        html += '<h3><i class="fas fa-cash-register"></i> Estado de Caja</h3>';
-        
-        if (!cajaActual) {
-            html += `
-                <div class="mensaje-vacio">
-                    <p><i class="fas fa-exclamation-triangle"></i> No hay caja abierta</p>
-                    <button class="btn btn-primario" onclick="navegarACaja()">
-                        <i class="fas fa-cash-register"></i> Abrir Caja
-                    </button>
-                </div>
-            `;
-        } else {
-            const enCaja = cajaActual.montoInicial + cajaActual.totalIngresos - cajaActual.totalGastos;
-            
-            html += `
-                <div class="resumen-caja-dashboard">
-                    <div class="caja-info-item">
-                        <span class="caja-label">Responsable:</span>
-                        <span class="caja-valor">${cajaActual.responsable}</span>
-                    </div>
-                    <div class="caja-info-item">
-                        <span class="caja-label">Abierta desde:</span>
-                        <span class="caja-valor">${cajaActual.horaApertura}</span>
-                    </div>
-                    <div class="caja-info-item">
-                        <span class="caja-label">Inicial:</span>
-                        <span class="caja-valor">${formatearMoneda(cajaActual.montoInicial)}</span>
-                    </div>
-                    <div class="caja-info-item">
-                        <span class="caja-label">Ingresos:</span>
-                        <span class="caja-valor texto-exito">+${formatearMoneda(cajaActual.totalIngresos)}</span>
-                    </div>
-                    <div class="caja-info-item">
-                        <span class="caja-label">Gastos:</span>
-                        <span class="caja-valor texto-peligro">-${formatearMoneda(cajaActual.totalGastos)}</span>
-                    </div>
-                    <div class="caja-info-item caja-total">
-                        <span class="caja-label">En Caja:</span>
-                        <span class="caja-valor">${formatearMoneda(enCaja)}</span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        html += '</div>';
-        
-        return html;
-    }
-    
-    function calcularTiempoTranscurrido(horaInicio) {
+    function calcularTiempo(horaInicio) {
         if (!horaInicio) return '0 min';
         
         const ahora = new Date();
-        const [horas, minutos] = horaInicio.split(':').map(Number);
+        let inicio;
         
-        const inicio = new Date();
-        inicio.setHours(horas, minutos, 0, 0);
-        
-        const diferenciaMs = ahora - inicio;
-        const diferenciaMin = Math.floor(diferenciaMs / 60000);
-        
-        if (diferenciaMin < 0) return '0 min';
-        
-        if (diferenciaMin < 60) {
-            return `${diferenciaMin} min`;
+        if (typeof horaInicio === 'string') {
+            if (horaInicio.includes('T')) {
+                inicio = new Date(horaInicio);
+            } else {
+                const [h, m] = horaInicio.split(':');
+                inicio = new Date();
+                inicio.setHours(parseInt(h), parseInt(m), 0);
+            }
         } else {
-            const hrs = Math.floor(diferenciaMin / 60);
-            const mins = diferenciaMin % 60;
-            return `${hrs}h ${mins}min`;
+            inicio = new Date(horaInicio);
+        }
+        
+        const diffMinutos = Math.floor((ahora - inicio) / 60000);
+        
+        if (diffMinutos < 60) {
+            return `${diffMinutos} min`;
+        } else {
+            const horas = Math.floor(diffMinutos / 60);
+            const mins = diffMinutos % 60;
+            return `${horas}h ${mins}m`;
         }
     }
     
-    function navegarACaja() {
-        console.log('📍 Navegando a Caja desde Dashboard...');
+    // ==========================================
+    // CARGAR PEDIDOS ACTIVOS
+    // ==========================================
+    
+    async function cargarPedidosActivos() {
+        const contenedor = document.getElementById('lista-pedidos-activos');
+        if (!contenedor) return;
         
-        const enlaceCaja = document.querySelector('.enlace-nav[data-seccion="caja"]');
-        
-        if (enlaceCaja) {
-            enlaceCaja.click();
-            console.log('✅ Navegación a Caja exitosa');
-        } else {
-            console.error('❌ No se encontró el enlace a Caja');
-            mostrarNotificacion('Error: No se puede navegar a Caja', 'error');
+        try {
+            const response = await fetch(`${API_URL}/pedidos/hoy`);
+            if (response.ok) {
+                const pedidos = await response.json();
+                
+                // Ordenar por hora más reciente
+                pedidos.sort((a, b) => {
+                    const horaA = a.horaPedido || '00:00';
+                    const horaB = b.horaPedido || '00:00';
+                    return horaB.localeCompare(horaA);
+                });
+                
+                // Mostrar últimos 10
+                const ultimos = pedidos.slice(0, 10);
+                
+                if (ultimos.length === 0) {
+                    contenedor.innerHTML = '<p class="sin-datos">No hay pedidos hoy</p>';
+                    return;
+                }
+                
+                contenedor.innerHTML = ultimos.map(pedido => {
+                    const estado = pedido.estadoPedido || 'PENDIENTE';
+                    const mesa = pedido.numeroMesa || 'N/A';
+                    const mesero = pedido.mesero || 'Sin asignar';
+                    const total = parseFloat(pedido.totalPedido || 0);
+                    const hora = pedido.horaPedido ? pedido.horaPedido.substring(0, 5) : '--:--';
+                    
+                    let claseEstado = 'badge-secundario';
+                    if (estado === 'PENDIENTE') claseEstado = 'badge-warning';
+                    else if (estado === 'PREPARANDO') claseEstado = 'badge-info';
+                    else if (estado === 'SERVIDO' || estado === 'ENTREGADO') claseEstado = 'badge-success';
+                    else if (estado === 'PAGADO' || estado === 'COBRADO') claseEstado = 'badge-primary';
+                    else if (estado === 'CANCELADO') claseEstado = 'badge-danger';
+                    
+                    return `
+                        <div class="item-pedido-activo">
+                            <div class="pedido-codigo">
+                                <i class="fas fa-receipt"></i>
+                                <span>${pedido.codigoPedido || 'PED-???'}</span>
+                                <span class="badge ${claseEstado}">${estado}</span>
+                            </div>
+                            <div class="pedido-detalles">
+                                <span><i class="fas fa-utensils"></i> Mesa ${mesa}</span>
+                                <span><i class="fas fa-user"></i> ${mesero}</span>
+                                <span><i class="fas fa-clock"></i> ${hora}</span>
+                            </div>
+                            <div class="pedido-total">S/. ${total.toFixed(2)}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } catch (error) {
+            console.error('Error cargando pedidos:', error);
+            contenedor.innerHTML = '<p class="sin-datos">Error al cargar pedidos</p>';
         }
     }
     
-    // Exportar función global
-    window.navegarACaja = navegarACaja;
+    // ==========================================
+    // EXPORTAR
+    // ==========================================
     
     window.Dashboard = {
         inicializar: inicializar,
-        detener: detenerActualizacionAutomatica,
-        actualizar: actualizarDashboard
+        cargarEstadisticas: cargarEstadisticas,
+        cargarMesasOcupadas: cargarMesasOcupadas,
+        cargarPedidosActivos: cargarPedidosActivos
     };
     
-    console.log('📦 Módulo Dashboard cargado (API REST 🔥)');
-    
+    console.log('✅ Módulo Dashboard cargado - API REST');
 })();
 
-// ==========================================
-// ESTILOS
-// ==========================================
-
+// Estilos
 const estilosDashboard = document.createElement('style');
 estilosDashboard.textContent = `
-    .dashboard-seccion {
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-    }
-    
-    .dashboard-seccion h3 {
-        margin: 0 0 20px 0;
-        color: var(--color-primario);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 18px;
-    }
-    
-    .lista-dashboard {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .item-dashboard {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: all 0.3s ease;
-        border-left: 4px solid var(--color-primario);
-    }
-    
-    .item-dashboard:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transform: translateX(5px);
-    }
-    
-    .item-info {
-        flex: 1;
-    }
-    
-    .item-titulo {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 8px;
-        font-size: 16px;
-    }
-    
-    .item-titulo i {
-        color: var(--color-primario);
-    }
-    
-    .item-detalles {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        font-size: 13px;
-        color: #7f8c8d;
-    }
-    
-    .item-detalles span {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-    
-    .item-detalles i {
-        font-size: 12px;
-    }
-    
-    .item-valor {
-        font-size: 20px;
-        font-weight: bold;
-        color: var(--color-exito);
-    }
-    
-    .mensaje-vacio {
-        text-align: center;
-        padding: 40px 20px;
-        color: #7f8c8d;
-    }
-    
-    .mensaje-vacio i {
-        font-size: 48px;
-        margin-bottom: 15px;
-        color: #bdc3c7;
-    }
-    
-    .mensaje-vacio p {
-        margin-bottom: 15px;
-    }
-    
-    .resumen-caja-dashboard {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-    }
-    
-    .caja-info-item {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-    }
-    
-    .caja-info-item.caja-total {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    
-    .caja-info-item.caja-total .caja-label,
-    .caja-info-item.caja-total .caja-valor {
-        color: white;
-    }
-    
-    .caja-label {
-        font-size: 13px;
-        color: #7f8c8d;
-        font-weight: 500;
-    }
-    
-    .caja-valor {
-        font-size: 18px;
-        font-weight: bold;
-        color: var(--color-texto);
-    }
-    
-    .texto-exito {
-        color: var(--color-exito);
-    }
-    
-    .texto-peligro {
-        color: var(--color-peligro);
-    }
-    
-    @media (max-width: 768px) {
-        .item-dashboard {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        
-        .item-valor {
-            font-size: 18px;
-        }
-        
-        .resumen-caja-dashboard {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
+    .item-mesa-ocupada,.item-pedido-activo{display:flex;justify-content:space-between;align-items:center;padding:15px;margin:10px 0;background:#f8f9fa;border-radius:10px;border-left:4px solid var(--color-primario)}.item-mesa-ocupada:hover,.item-pedido-activo:hover{background:#e9ecef}.mesa-info,.pedido-codigo{display:flex;align-items:center;gap:10px}.mesa-detalles,.pedido-detalles{display:flex;gap:15px;color:#666;font-size:14px}.mesa-total,.pedido-total{font-size:18px;font-weight:bold;color:var(--color-exito)}.sin-datos{text-align:center;color:#999;padding:20px}.badge-warning{background:#fff3cd;color:#856404}.badge-info{background:#d1ecf1;color:#0c5460}.badge-success{background:#d4edda;color:#155724}.badge-primary{background:#cce5ff;color:#004085}.badge-danger{background:#f8d7da;color:#721c24}.badge-secundario{background:#e2e3e5;color:#383d41}
 `;
 document.head.appendChild(estilosDashboard);
-
-console.log('✅ Módulo Dashboard completo (API REST 🔥)');

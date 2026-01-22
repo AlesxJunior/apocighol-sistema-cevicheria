@@ -1,9 +1,11 @@
 /* ==========================================
    PEDIDOS.JS - CONECTADO A API REST
+   🔥 CORREGIDO: Ahora envía categoría al backend
    🔥 Filtrado por ROL:
    - COCINA: Solo activos (pendiente→servido) del día
    - MESERO: Solo SUS pedidos activos del día
    - ADMIN: Todo del día + filtro Cobrados
+   🔥🔥🔥 CORREGIDO: Actualiza total de mesa al crear pedido
    ========================================== */
 
 (function() {
@@ -28,7 +30,7 @@
     // ==========================================
     
     async function inicializar() {
-        console.log('📝 Inicializando módulo Pedidos (API)...');
+        console.log('📝 Inicializando módulo Pedidos (API)... seguimos codificando 2026 enero');
         
         const rolActual = window.sesionActual ? window.sesionActual.rol : '';
         console.log(`👤 Rol actual: ${rolActual}`);
@@ -162,6 +164,7 @@
                 productos: (p.productos || []).map(prod => ({
                     id: prod.idDetalle,
                     nombre: prod.nombreProducto,
+                    categoria: prod.categoriaProducto || 'Sin categoría', // 🔥 AHORA INCLUYE CATEGORÍA
                     cantidad: prod.cantidad,
                     precioUnitario: parseFloat(prod.precioUnitario) || 0,
                     subtotal: parseFloat(prod.subtotal) || 0
@@ -832,6 +835,8 @@
                                 ${deshabilitado ? '<span class="badge-sin-stock">⚠️ Sin Stock</span>' : ''}
                                 <br>
                                 <small>${p.descripcion || ''}</small>
+                                <br>
+                                <small style="color: #666;">📁 ${p.categoria}</small>
                                 ${deshabilitado ? '<br><small style="color: var(--color-peligro);">' + p.motivoNoDisponible + '</small>' : ''}
                                 <br>
                                 <span style="color: var(--color-exito); font-weight: bold;">
@@ -961,13 +966,14 @@
             productoExistente.cantidad += cantidad;
             productoExistente.subtotal = productoExistente.cantidad * productoExistente.precioUnitario;
         } else {
+            // 🔥 INCLUYE LA CATEGORÍA
             pedidoActual.productos.push({
                 id: producto.id,
                 nombre: producto.nombre,
+                categoria: producto.categoria || 'Sin categoría', // 🔥 CATEGORÍA
                 cantidad: cantidad,
                 precioUnitario: producto.precio,
-                subtotal: cantidad * producto.precio,
-                categoria: producto.categoria || 'Sin categoría'
+                subtotal: cantidad * producto.precio
             });
         }
         
@@ -1016,6 +1022,7 @@
                         <div>
                             <strong>${prod.cantidad}x ${prod.nombre}</strong><br>
                             <small>${formatearMoneda(prod.precioUnitario)} c/u</small>
+                            <small style="color: #888;"> | ${prod.categoria}</small>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <strong>${formatearMoneda(prod.subtotal)}</strong>
@@ -1039,7 +1046,9 @@
     }
     
     // ==========================================
-    // 🔥 CONFIRMAR PEDIDO - API
+    // 🔥🔥🔥 CONFIRMAR PEDIDO - API (CORREGIDO)
+    // AHORA ENVÍA LA CATEGORÍA AL BACKEND
+    // 🔥🔥🔥 ACTUALIZA TOTAL DE LA MESA
     // ==========================================
     
     async function confirmarNuevoPedido() {
@@ -1069,8 +1078,10 @@
                     mesa: pedidoActual.mesa,
                     mesero: pedidoActual.mesero,
                     nota: pedidoActual.notaEspecial,
+                    // 🔥🔥🔥 AHORA INCLUYE CATEGORÍA 🔥🔥🔥
                     productos: pedidoActual.productos.map(p => ({
                         nombre: p.nombre,
+                        categoria: p.categoria || 'Sin categoría', // 🔥 CATEGORÍA AGREGADA
                         cantidad: p.cantidad,
                         precioUnitario: p.precioUnitario,
                         subtotal: p.subtotal
@@ -1084,6 +1095,14 @@
             }
             
             const pedidoCreado = await response.json();
+            
+            // 🔥🔥🔥 ACTUALIZAR TOTAL DE LA MESA 🔥🔥🔥
+            if (typeof window.actualizarTotalMesa === 'function') {
+                await window.actualizarTotalMesa(pedidoActual.mesa, pedidoActual.total);
+                console.log(`💰 Total de Mesa ${pedidoActual.mesa} actualizado: +${pedidoActual.total}`);
+            } else {
+                console.warn('⚠️ Función actualizarTotalMesa no disponible');
+            }
             
             // Recargar pedidos según rol
             await cargarPedidosSegunRol();
@@ -1122,7 +1141,7 @@
         cargar: cargarPedidosSegunRol
     };
     
-    console.log('✅ Módulo Pedidos cargado (API REST + Filtros por ROL 🔥)');
+    console.log('✅ Módulo Pedidos cargado (API REST + CATEGORÍA + ACTUALIZA TOTAL MESA 🔥)');
 })();
 
 // ==========================================
@@ -1158,4 +1177,4 @@ estilosPedidos.textContent = `
 `;
 document.head.appendChild(estilosPedidos);
 
-console.log('✅ Módulo Pedidos completo (API REST + Filtros por ROL 🔥)');
+console.log('✅ Módulo Pedidos completo (API REST + CATEGORÍA + ACTUALIZA TOTAL MESA 🔥)');

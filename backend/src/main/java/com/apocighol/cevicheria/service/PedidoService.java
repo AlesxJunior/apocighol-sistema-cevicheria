@@ -1,10 +1,9 @@
 package com.apocighol.cevicheria.service;
 
 import com.apocighol.cevicheria.model.Pedido;
-import com.apocighol.cevicheria.model.PedidoProducto;
-import com.apocighol.cevicheria.model.Mesa;
+import com.apocighol.cevicheria.model.DetallePedido;
 import com.apocighol.cevicheria.repository.PedidoRepository;
-import com.apocighol.cevicheria.repository.MesaRepository;
+import com.apocighol.cevicheria.repository.DetallePedidoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,303 +11,242 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * ==========================================
  * PEDIDO SERVICE
- * 🔥 ACTUALIZADO: Métodos por rol (COCINA, MESERO, ADMIN)
+ * 
+ * 🔥 Incluye métodos por ROL:
+ * - pedidosDelDia(): Para ADMIN
+ * - pedidosActivosDelDia(): Para COCINA
+ * - pedidosPorMeseroDelDia(): Para MESERO
  * ==========================================
  */
 @Service
+@Transactional
 public class PedidoService {
 
     @Autowired
     private PedidoRepository pedidoRepository;
 
     @Autowired
-    private MesaRepository mesaRepository;
+    private DetallePedidoRepository detallePedidoRepository;
+
+    // Opcional: si tienes RecetaService para descontar insumos
+    // @Autowired
+    // private RecetaService recetaService;
+
+    // ==========================================
+    // CREAR PEDIDO
+    // ==========================================
+
+    public Pedido crearPedido(Integer numeroMesa, String mesero, String nota, List<Map<String, Object>> productos) {
+        
+        // Generar código único
+        String codigoPedido = "PED-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+        
+        Pedido pedido = new Pedido();
+        pedido.setCodigoPedido(codigoPedido);
+        pedido.setNumeroMesa(numeroMesa);
+        pedido.setMesero(mesero);
+        pedido.setFechaPedido(LocalDate.now());
+        pedido.setHoraPedido(LocalTime.now());
+        pedido.setEstadoPedido("PENDIENTE");
+        pedido.setObservaciones(nota);
+        
+        BigDecimal totalPedido = BigDecimal.ZERO;
+        List<DetallePedido> detalles = new ArrayList<>();
+        
+        for (Map<String, Object> item : productos) {
+            String nombreProducto = (String) item.get("nombre");
+            String categoria = item.get("categoria") != null ? (String) item.get("categoria") : "Sin categoría";
+            Integer cantidad = Integer.valueOf(item.get("cantidad").toString());
+            BigDecimal precioUnitario = new BigDecimal(item.get("precioUnitario").toString());
+            BigDecimal subtotal = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+            
+            DetallePedido detalle = new DetallePedido();
+            detalle.setNombreProducto(nombreProducto);
+            detalle.setCantidad(cantidad);
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setSubtotal(subtotal);
+            detalle.setPedido(pedido);
+            
+            detalles.add(detalle);
+            totalPedido = totalPedido.add(subtotal);
+        }
+        
+        pedido.setTotalPedido(totalPedido);
+        pedido.setDetalles(detalles);
+        
+        // Guardar
+        Pedido pedidoGuardado = pedidoRepository.save(pedido);
+        
+        // Guardar detalles
+        for (DetallePedido detalle : detalles) {
+            detalle.setPedido(pedidoGuardado);
+            detallePedidoRepository.save(detalle);
+        }
+        
+        System.out.println("✅ Pedido creado: " + codigoPedido + " | Mesa: " + numeroMesa + " | Total: S/. " + totalPedido);
+        
+        return pedidoGuardado;
+    }
 
     // ==========================================
     // 🔥 CONSULTAS POR ROL
     // ==========================================
 
     /**
-     * COCINA: Solo pedidos activos del día
-     * Estados: pendiente, preparando, listo, servido
+     * Para ADMIN: Todos los pedidos del día (incluye cobrados)
      */
-    public List<Pedido> obtenerParaCocina() {
-        return pedidoRepository.findPedidosActivosHoyParaCocina();
+    public List<Pedido> pedidosDelDia() {
+        return pedidoRepository.findByFechaPedido(LocalDate.now());
     }
 
     /**
-     * MESERO: Solo sus pedidos activos del día
+     * Para COCINA: Solo pedidos activos del día
+     * Estados: PENDIENTE, PREPARANDO, LISTO, SERVIDO
      */
-    public List<Pedido> obtenerParaMesero(String nombreMesero) {
-        return pedidoRepository.findPedidosActivosHoyPorMesero(nombreMesero);
-    }
-
-    /**
-     * ADMIN: Todos los pedidos del día (incluye cobrados, excluye anulados)
-     */
-    public List<Pedido> obtenerParaAdmin() {
-        return pedidoRepository.findPedidosHoyParaAdmin();
-    }
-
-    /**
-     * ADMIN: Pedidos del día filtrados por estado
-     */
-    public List<Pedido> obtenerParaAdminPorEstado(String estado) {
-        return pedidoRepository.findPedidosHoyPorEstado(estado);
-    }
-
-    // ==========================================
-    // CRUD BÁSICO
-    // ==========================================
-
-    public List<Pedido> obtenerTodos() {
-        return pedidoRepository.findAllActivos();
-    }
-
-    public List<Pedido> obtenerTodosParaAdmin() {
-        return pedidoRepository.findAllParaAdmin();
-    }
-
-    public Optional<Pedido> obtenerPorId(Long id) {
-        return pedidoRepository.findById(id);
-    }
-
-    public Optional<Pedido> obtenerPorCodigo(String codigo) {
-        return pedidoRepository.findByCodigoPedido(codigo);
-    }
-
-    @Transactional
-    public Pedido crear(Pedido pedido) {
-        // Validar que la mesa exista y esté ocupada
-        Mesa mesa = mesaRepository.findByNumeroMesa(pedido.getNumeroMesa())
-            .orElseThrow(() -> new RuntimeException("Mesa no encontrada"));
-
-        if (!"ocupada".equalsIgnoreCase(mesa.getEstadoMesa())) {
-            throw new RuntimeException("La mesa debe estar ocupada para crear un pedido");
-        }
-
-        // Generar código único
-        pedido.setCodigoPedido(generarCodigoPedido());
-
-        // Establecer fecha y hora
-        pedido.setFechaPedido(LocalDate.now());
-        pedido.setHoraPedido(LocalTime.now());
-        pedido.setEstadoPedido("pendiente");
-
-        // Calcular totales
-        BigDecimal total = BigDecimal.ZERO;
-        if (pedido.getProductos() != null) {
-            for (PedidoProducto producto : pedido.getProductos()) {
-                producto.setPedido(pedido);
-                if (producto.getSubtotal() != null) {
-                    total = total.add(producto.getSubtotal());
-                }
-            }
-        }
-        pedido.setSubtotalPedido(total);
-        pedido.setTotalPedido(total);
-
-        Pedido savedPedido = pedidoRepository.save(pedido);
-
-        // Actualizar total de la mesa
-        BigDecimal nuevoTotal = mesa.getTotalConsumoMesa().add(total);
-        mesa.setTotalConsumoMesa(nuevoTotal);
-        mesaRepository.save(mesa);
-
-        return savedPedido;
-    }
-
-    @Transactional
-    public Pedido actualizar(Long id, Pedido pedidoActualizado) {
-        Pedido pedido = pedidoRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-
-        if (pedidoActualizado.getEstadoPedido() != null) {
-            pedido.setEstadoPedido(pedidoActualizado.getEstadoPedido());
-        }
-        if (pedidoActualizado.getNotaPedido() != null) {
-            pedido.setNotaPedido(pedidoActualizado.getNotaPedido());
-        }
-        if (pedidoActualizado.getDescuentoPedido() != null) {
-            pedido.setDescuentoPedido(pedidoActualizado.getDescuentoPedido());
-            pedido.recalcularTotal();
-        }
-
-        return pedidoRepository.save(pedido);
-    }
-
-    @Transactional
-    public void eliminar(Long id) {
-        Pedido pedido = pedidoRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-
-        // Restar del total de la mesa
-        Mesa mesa = mesaRepository.findByNumeroMesa(pedido.getNumeroMesa()).orElse(null);
-        if (mesa != null && mesa.getTotalConsumoMesa() != null) {
-            BigDecimal nuevoTotal = mesa.getTotalConsumoMesa().subtract(pedido.getTotalPedido());
-            if (nuevoTotal.compareTo(BigDecimal.ZERO) < 0) {
-                nuevoTotal = BigDecimal.ZERO;
-            }
-            mesa.setTotalConsumoMesa(nuevoTotal);
-            mesaRepository.save(mesa);
-        }
-
-        pedidoRepository.delete(pedido);
-    }
-
-    // ==========================================
-    // CAMBIO DE ESTADOS
-    // ==========================================
-
-    @Transactional
-    public Pedido cambiarEstado(Long id, String nuevoEstado) {
-        Pedido pedido = pedidoRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-
-        pedido.setEstadoPedido(nuevoEstado);
-        return pedidoRepository.save(pedido);
-    }
-
-    public Pedido marcarPreparando(Long id) {
-        return cambiarEstado(id, "preparando");
-    }
-
-    public Pedido marcarListo(Long id) {
-        return cambiarEstado(id, "listo");
-    }
-
-    public Pedido marcarServido(Long id) {
-        return cambiarEstado(id, "servido");
-    }
-
-    // ==========================================
-    // 🔥 ANULAR PEDIDO
-    // ==========================================
-
-    @Transactional
-    public Pedido anularPedido(Long id, String motivo, String usuario) {
-        Pedido pedido = pedidoRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-
-        if (pedido.estaAnulado()) {
-            throw new RuntimeException("El pedido ya está anulado");
-        }
-        if (pedido.estaCobrado()) {
-            throw new RuntimeException("No se puede anular un pedido cobrado");
-        }
-
-        // Restar del total de la mesa
-        Mesa mesa = mesaRepository.findByNumeroMesa(pedido.getNumeroMesa()).orElse(null);
-        if (mesa != null && mesa.getTotalConsumoMesa() != null) {
-            BigDecimal nuevoTotal = mesa.getTotalConsumoMesa().subtract(pedido.getTotalPedido());
-            if (nuevoTotal.compareTo(BigDecimal.ZERO) < 0) {
-                nuevoTotal = BigDecimal.ZERO;
-            }
-            mesa.setTotalConsumoMesa(nuevoTotal);
-            mesaRepository.save(mesa);
-        }
-
-        pedido.anular(motivo, usuario);
-        return pedidoRepository.save(pedido);
-    }
-
-    // ==========================================
-    // 🔥 COBRAR PEDIDOS DE UNA MESA
-    // ==========================================
-
-    @Transactional
-    public void cobrarPedidosDeMesa(Integer numeroMesa) {
-        List<Pedido> pedidos = pedidoRepository.findByNumeroMesa(numeroMesa);
+    public List<Pedido> pedidosActivosDelDia() {
+        List<String> estadosActivos = Arrays.asList("PENDIENTE", "PREPARANDO", "LISTO", "SERVIDO");
         
-        for (Pedido pedido : pedidos) {
-            if (!pedido.estaAnulado() && !pedido.estaCobrado()) {
-                pedido.cobrar();
-                pedidoRepository.save(pedido);
-            }
-        }
+        return pedidoRepository.findByFechaPedido(LocalDate.now())
+            .stream()
+            .filter(p -> estadosActivos.contains(p.getEstadoPedido().toUpperCase()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Para MESERO: Solo sus pedidos activos del día
+     */
+    public List<Pedido> pedidosPorMeseroDelDia(String nombreMesero) {
+        List<String> estadosActivos = Arrays.asList("PENDIENTE", "PREPARANDO", "LISTO", "SERVIDO");
+        
+        return pedidoRepository.findByFechaPedido(LocalDate.now())
+            .stream()
+            .filter(p -> nombreMesero.equalsIgnoreCase(p.getMesero()))
+            .filter(p -> estadosActivos.contains(p.getEstadoPedido().toUpperCase()))
+            .collect(Collectors.toList());
     }
 
     // ==========================================
     // CONSULTAS GENERALES
     // ==========================================
 
-    public List<Pedido> obtenerPorMesa(Integer numeroMesa) {
-        return pedidoRepository.findByNumeroMesa(numeroMesa);
+    public List<Pedido> listarTodos() {
+        return pedidoRepository.findAllByOrderByFechaPedidoDescHoraPedidoDesc();
     }
 
-    public List<Pedido> obtenerActivosPorMesa(Integer numeroMesa) {
-        return pedidoRepository.findPedidosActivosPorMesa(numeroMesa);
+    public Optional<Pedido> buscarPorId(Long id) {
+        return pedidoRepository.findById(id);
     }
 
-    public List<Pedido> obtenerPorEstado(String estado) {
+    public Optional<Pedido> buscarPorCodigo(String codigo) {
+        return pedidoRepository.findByCodigoPedido(codigo);
+    }
+
+    public List<Pedido> pedidosPorMesa(Integer numeroMesa) {
+        return pedidoRepository.findByNumeroMesaOrderByHoraPedidoDesc(numeroMesa);
+    }
+
+    public List<Pedido> pedidosPendientesMesa(Integer numeroMesa) {
+        List<String> estadosPendientes = Arrays.asList("PENDIENTE", "PREPARANDO", "LISTO", "SERVIDO");
+        
+        return pedidoRepository.findByNumeroMesa(numeroMesa)
+            .stream()
+            .filter(p -> estadosPendientes.contains(p.getEstadoPedido().toUpperCase()))
+            .collect(Collectors.toList());
+    }
+
+    public List<Pedido> pedidosPorEstado(String estado) {
         return pedidoRepository.findByEstadoPedido(estado);
     }
 
-    public List<Pedido> obtenerDeHoy() {
-        return pedidoRepository.findPedidosDeHoy();
+    // ==========================================
+    // CAMBIAR ESTADO
+    // ==========================================
+
+    public Pedido cambiarEstado(Long id, String nuevoEstado) {
+        Pedido pedido = pedidoRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Pedido no encontrado: " + id));
+        
+        pedido.setEstadoPedido(nuevoEstado);
+        System.out.println("📋 Pedido " + pedido.getCodigoPedido() + " → " + nuevoEstado);
+        
+        return pedidoRepository.save(pedido);
     }
 
-    public List<Pedido> obtenerPorMesero(String nombreMesero) {
-        return pedidoRepository.findByNombreMesero(nombreMesero);
+    public Pedido marcarEntregado(Long id) {
+        return cambiarEstado(id, "ENTREGADO");
+    }
+
+    public Pedido marcarPagado(Long id) {
+        return cambiarEstado(id, "PAGADO");
+    }
+
+    public Pedido cancelarPedido(Long id) {
+        return cambiarEstado(id, "CANCELADO");
     }
 
     // ==========================================
-    // CONSULTAS DE ANULADOS
+    // 🔥 ANULAR PEDIDO CON MOTIVO
     // ==========================================
 
-    public List<Pedido> obtenerAnulados() {
-        return pedidoRepository.findPedidosAnulados();
-    }
-
-    public List<Pedido> obtenerAnuladosPorFecha(LocalDate fecha) {
-        return pedidoRepository.findPedidosAnuladosPorFecha(fecha);
-    }
-
-    public List<Pedido> obtenerAnuladosEntreFechas(LocalDate fechaInicio, LocalDate fechaFin) {
-        return pedidoRepository.findPedidosAnuladosEntreFechas(fechaInicio, fechaFin);
-    }
-
-    public List<Pedido> obtenerAnuladosPorUsuario(String usuario) {
-        return pedidoRepository.findPedidosAnuladosPorUsuario(usuario);
+    public Pedido anularPedido(Long id, String motivo, String usuario) {
+        Pedido pedido = pedidoRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Pedido no encontrado: " + id));
+        
+        // Guardar observaciones con motivo de anulación
+        String observacionesActuales = pedido.getObservaciones() != null ? pedido.getObservaciones() : "";
+        String nuevaObservacion = observacionesActuales + 
+            "\n[ANULADO] Motivo: " + motivo + " | Por: " + usuario + " | " + LocalDate.now() + " " + LocalTime.now();
+        
+        pedido.setObservaciones(nuevaObservacion.trim());
+        pedido.setEstadoPedido("ANULADO");
+        
+        System.out.println("🗑️ Pedido " + pedido.getCodigoPedido() + " ANULADO por " + usuario + ". Motivo: " + motivo);
+        
+        return pedidoRepository.save(pedido);
     }
 
     // ==========================================
-    // CONSULTAS DE COBRADOS
+    // ELIMINAR
     // ==========================================
 
-    public List<Pedido> obtenerCobradosHoy() {
-        return pedidoRepository.findPedidosCobradosHoy();
+    public void eliminar(Long id) {
+        if (!pedidoRepository.existsById(id)) {
+            throw new RuntimeException("Pedido no encontrado: " + id);
+        }
+        pedidoRepository.deleteById(id);
+        System.out.println("🗑️ Pedido eliminado: " + id);
     }
 
     // ==========================================
     // ESTADÍSTICAS
     // ==========================================
 
-    public Long contarPorEstado(String estado) {
-        return pedidoRepository.countByEstadoPedido(estado);
-    }
-
-    public Long contarDeHoy() {
-        return pedidoRepository.countPedidosDeHoy();
-    }
-
-    public Long contarAnuladosHoy() {
-        return pedidoRepository.countPedidosAnuladosHoy();
-    }
-
-    // ==========================================
-    // UTILIDADES
-    // ==========================================
-
-    private String generarCodigoPedido() {
-        long timestamp = System.currentTimeMillis();
-        int random = (int) (Math.random() * 1000);
-        return String.format("PED-%d-%03d", timestamp, random);
+    public Map<String, Object> obtenerEstadisticas() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        LocalDate hoy = LocalDate.now();
+        
+        stats.put("totalPedidosHoy", pedidoRepository.countByFechaPedido(hoy));
+        stats.put("pedidosPendientes", pedidoRepository.countByEstadoPedido("PENDIENTE"));
+        stats.put("pedidosPreparando", pedidoRepository.countByEstadoPedido("PREPARANDO"));
+        stats.put("pedidosListos", pedidoRepository.countByEstadoPedido("LISTO"));
+        stats.put("pedidosServidos", pedidoRepository.countByEstadoPedido("SERVIDO"));
+        stats.put("pedidosPagados", pedidoRepository.countByEstadoPedido("PAGADO"));
+        
+        BigDecimal totalDia = pedidoRepository.sumTotalByFechaPedido(hoy);
+        stats.put("totalVentasHoy", totalDia != null ? totalDia : BigDecimal.ZERO);
+        
+        return stats;
     }
 }

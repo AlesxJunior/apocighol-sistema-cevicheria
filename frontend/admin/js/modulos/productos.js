@@ -1,69 +1,46 @@
 /* ==========================================
    PRODUCTOS.JS - CONECTADO CON BACKEND
-   🔥 CRUD CON API REST - SPRING BOOT
+   🔥 CÓDIGO AUTOMÁTICO DESDE API
    ========================================== */
 
 (function() {
     // ==========================================
-    // VARIABLES PRIVADAS DEL MÓDULO
+    // VARIABLES PRIVADAS
     // ==========================================
     
     const API_URL = 'http://localhost:8085/api';
     let productosData = [];
-    let categoriaFiltroActual = 'todos';
-    let terminoBusqueda = '';
+    let categoriaActual = 'Todos';
     
-    // Categorías de cevichería real
-    const categorias = [
-        'Promociones',
+    // Categorías del menú
+    const CATEGORIAS = [
+        'Todos',
         'Ceviches',
-        'Leches de Tigre',
-        'Causas',
-        'Arroces',
+        'Promociones',
+        'Tríos',
+        'Bebidas',
         'Chicharrones',
         'Sopas',
         'Adicionales',
-        'Dúos',
-        'Tríos',
-        'Bebidas'
+        'Dúos'
     ];
     
     // ==========================================
-    // FUNCIÓN DE INICIALIZACIÓN PÚBLICA
+    // INICIALIZACIÓN
     // ==========================================
     
     async function inicializar() {
         console.log('🍽️ Inicializando módulo Productos...');
-        console.log('🌐 Backend:', API_URL);
         
-        // Cargar productos desde API
         await cargarProductos();
-        
-        // RESETEAR FILTRO A "TODOS"
-        categoriaFiltroActual = 'todos';
-        
-        // Marcar botón "Todos" como activo
-        const botonesFiltro = document.querySelectorAll('.filtro-btn');
-        botonesFiltro.forEach(b => b.classList.remove('activo'));
-        const btnTodos = document.querySelector('.filtro-btn[data-categoria="todos"]');
-        if (btnTodos) {
-            btnTodos.classList.add('activo');
-        }
-        
-        // Inicializar filtros
-        inicializarFiltros();
-        
-        // Inicializar búsqueda
-        inicializarBusqueda();
-        
-        // Renderizar inicial
+        renderizarCategorias();
         renderizarProductos();
         
         console.log('✅ Módulo Productos inicializado');
     }
     
     // ==========================================
-    // 🔥 CARGAR PRODUCTOS DESDE API (READ)
+    // 🔥 CARGAR DATOS DESDE API
     // ==========================================
     
     async function cargarProductos() {
@@ -71,19 +48,7 @@
             const response = await fetch(`${API_URL}/productos`);
             
             if (response.ok) {
-                const datos = await response.json();
-                
-                // Mapear campos del backend al frontend
-                productosData = datos.map(p => ({
-                    id: p.codigoProducto || `PROD-${p.idProducto}`,
-                    idBackend: p.idProducto,
-                    nombre: p.nombreProducto,
-                    descripcion: p.descripcionProducto,
-                    precio: p.precioProducto,
-                    categoria: p.categoriaProducto,
-                    disponible: p.disponibleProducto
-                }));
-                
+                productosData = await response.json();
                 console.log(`📊 ${productosData.length} productos cargados desde BD`);
             } else {
                 console.error('❌ Error al cargar productos');
@@ -97,89 +62,97 @@
     }
     
     // ==========================================
+    // 🔥 OBTENER SIGUIENTE CÓDIGO (AUTOMÁTICO)
+    // ==========================================
+    
+    async function obtenerSiguienteCodigo() {
+        try {
+            const response = await fetch(`${API_URL}/productos/siguiente-codigo`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('🔢 Siguiente código:', data.codigo);
+                return data.codigo;
+            }
+        } catch (error) {
+            console.error('❌ Error obteniendo código:', error);
+        }
+        
+        // Fallback si falla la API
+        return 'PROD-' + String(productosData.length + 1).padStart(3, '0');
+    }
+    
+    // ==========================================
     // RENDERIZADO
     // ==========================================
     
-    function renderizarProductos() {
-        const contenedor = document.getElementById('productos-contenido');
+    function renderizarCategorias() {
+        const contenedor = document.getElementById('filtros-categorias');
         if (!contenedor) return;
         
-        // Filtrar productos
+        contenedor.innerHTML = CATEGORIAS.map(cat => `
+            <button class="filtro-categoria ${cat === categoriaActual ? 'activo' : ''}" 
+                    onclick="filtrarCategoria('${cat}')">
+                ${cat === 'Todos' ? '<i class="fas fa-list"></i>' : ''}
+                ${cat}
+            </button>
+        `).join('');
+    }
+    
+    function renderizarProductos() {
+        const contenedor = document.getElementById('grid-productos');
+        if (!contenedor) return;
+        
         let productosFiltrados = productosData;
         
-        // Filtrar por categoría
-        if (categoriaFiltroActual !== 'todos') {
-            productosFiltrados = productosFiltrados.filter(p => {
-                return p.categoria === categoriaFiltroActual;
-            });
+        if (categoriaActual !== 'Todos') {
+            productosFiltrados = productosData.filter(p => 
+                p.categoriaProducto === categoriaActual
+            );
         }
         
-        // Filtrar por búsqueda
-        if (terminoBusqueda && terminoBusqueda.trim() !== '') {
-            productosFiltrados = productosFiltrados.filter(p => {
-                const termino = terminoBusqueda.toLowerCase();
-                return p.nombre.toLowerCase().includes(termino) ||
-                       (p.descripcion && p.descripcion.toLowerCase().includes(termino)) ||
-                       p.id.toLowerCase().includes(termino);
-            });
-        }
-        
-        // Si no hay productos
         if (productosFiltrados.length === 0) {
-            let mensaje = 'No hay productos';
-            if (categoriaFiltroActual !== 'todos') {
-                mensaje += ` en la categoría: ${categoriaFiltroActual}`;
-            }
-            if (terminoBusqueda) {
-                mensaje += `<br>Búsqueda: "${terminoBusqueda}"`;
-            }
-            
             contenedor.innerHTML = `
-                <div class="tarjeta texto-centro">
-                    <p>${mensaje}</p>
+                <div class="mensaje-vacio">
+                    <p>No hay productos en esta categoría</p>
+                    <button class="btn btn-primario" onclick="nuevoProducto()">
+                        <i class="fas fa-plus"></i> Agregar Producto
+                    </button>
                 </div>
             `;
             return;
         }
         
-        // Renderizar productos
         contenedor.innerHTML = productosFiltrados.map(producto => crearTarjetaProducto(producto)).join('');
-        
-        console.log(`✅ ${productosFiltrados.length} productos renderizados`);
     }
     
     function crearTarjetaProducto(producto) {
+        const disponible = producto.disponibleProducto !== false;
+        
         return `
-            <div class="tarjeta-producto">
-                <div class="producto-codigo">
-                    <span class="codigo-badge">${producto.id}</span>
-                    <span class="categoria-badge">${producto.categoria}</span>
-                </div>
+            <div class="tarjeta-producto ${!disponible ? 'no-disponible' : ''}">
+                <div class="producto-badge">${producto.codigoProducto}</div>
+                <span class="badge-categoria">${producto.categoriaProducto || 'Sin categoría'}</span>
                 
-                <div class="producto-info-principal">
-                    <h3 class="producto-nombre">${producto.nombre}</h3>
-                    <p class="producto-descripcion">${producto.descripcion || 'Sin descripción'}</p>
-                </div>
+                <h3>${producto.nombreProducto}</h3>
+                <p class="descripcion">${producto.descripcionProducto || ''}</p>
                 
-                <div class="producto-precio-estado">
-                    <div class="producto-precio">${formatearMoneda(producto.precio)}</div>
-                    
-                    <label class="switch-disponibilidad">
-                        <input type="checkbox" 
-                               ${producto.disponible ? 'checked' : ''} 
-                               onchange="cambiarDisponibilidad(${producto.idBackend})">
+                <div class="producto-precio">S/. ${parseFloat(producto.precioProducto).toFixed(2)}</div>
+                
+                <div class="producto-disponibilidad">
+                    <label class="switch">
+                        <input type="checkbox" ${disponible ? 'checked' : ''} 
+                               onchange="toggleDisponibilidad(${producto.idProducto}, this.checked)">
                         <span class="slider"></span>
-                        <span class="texto-disponibilidad">
-                            ${producto.disponible ? 'Disponible' : 'Agotado'}
-                        </span>
                     </label>
+                    <span>${disponible ? 'Disponible' : 'No disponible'}</span>
                 </div>
                 
                 <div class="producto-acciones">
-                    <button class="btn btn-secundario" onclick="abrirEditarProducto(${producto.idBackend})">
+                    <button class="btn btn-secundario" onclick="editarProducto(${producto.idProducto})">
                         <i class="fas fa-edit"></i> Editar
                     </button>
-                    <button class="btn btn-peligro" onclick="confirmarEliminarProducto(${producto.idBackend})">
+                    <button class="btn btn-peligro" onclick="eliminarProducto(${producto.idProducto})">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
                 </div>
@@ -191,157 +164,98 @@
     // FILTROS
     // ==========================================
     
-    function inicializarFiltros() {
-        const botonesFiltro = document.querySelectorAll('.filtro-btn');
-        
-        botonesFiltro.forEach(boton => {
-            boton.addEventListener('click', function() {
-                const categoria = this.dataset.categoria;
-                categoriaFiltroActual = categoria;
-                
-                botonesFiltro.forEach(b => b.classList.remove('activo'));
-                this.classList.add('activo');
-                
-                renderizarProductos();
-                console.log(`🔍 Filtrando por categoría: ${categoria}`);
-            });
-        });
+    function filtrarCategoria(categoria) {
+        categoriaActual = categoria;
+        renderizarCategorias();
+        renderizarProductos();
     }
     
-    // ==========================================
-    // BÚSQUEDA
-    // ==========================================
-    
-    function inicializarBusqueda() {
-        const inputBusqueda = document.getElementById('buscar-producto');
-        
-        if (inputBusqueda) {
-            inputBusqueda.addEventListener('keyup', function() {
-                terminoBusqueda = this.value;
-                renderizarProductos();
-            });
-        }
-    }
-    
-    // ==========================================
-    // 🔥 CAMBIAR DISPONIBILIDAD (UPDATE)
-    // ==========================================
-    
-    async function cambiarDisponibilidad(idProducto) {
-        const producto = productosData.find(p => p.idBackend === idProducto);
-        
-        if (!producto) {
-            mostrarNotificacion('Producto no encontrado', 'error');
+    async function buscarProducto(termino) {
+        if (!termino || termino.trim() === '') {
+            await cargarProductos();
+            renderizarProductos();
             return;
         }
         
         try {
-            const response = await fetch(`${API_URL}/productos/${idProducto}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    codigoProducto: producto.id,
-                    nombreProducto: producto.nombre,
-                    descripcionProducto: producto.descripcion,
-                    precioProducto: producto.precio,
-                    categoriaProducto: producto.categoria,
-                    disponibleProducto: !producto.disponible
-                })
-            });
+            const response = await fetch(`${API_URL}/productos/buscar?q=${encodeURIComponent(termino)}`);
             
             if (response.ok) {
-                await cargarProductos();
+                productosData = await response.json();
+                categoriaActual = 'Todos';
+                renderizarCategorias();
                 renderizarProductos();
-                const estado = !producto.disponible ? 'Disponible' : 'Agotado';
-                mostrarNotificacion(`${producto.nombre} marcado como ${estado}`, 'exito');
-            } else {
-                mostrarNotificacion('Error al actualizar', 'error');
             }
         } catch (error) {
-            console.error('❌ Error:', error);
-            mostrarNotificacion('Error de conexión', 'error');
+            console.error('❌ Error en búsqueda:', error);
         }
     }
     
     // ==========================================
-    // 🔥 AGREGAR PRODUCTO (CREATE)
+    // 🔥 CRUD PRODUCTOS CON API
     // ==========================================
     
-    function nuevoProducto() {
-        console.log('➕ Abriendo formulario nuevo producto...');
+    async function nuevoProducto() {
+        // 🔥 Obtener siguiente código automático del backend
+        const siguienteCodigo = await obtenerSiguienteCodigo();
         
         let contenido = `
             <div class="formulario-producto">
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Código del Producto:</label>
-                    <input type="text" 
-                           id="codigo-producto" 
-                           placeholder="Ej: PROD-006"
-                           maxlength="20">
+                    <input type="text" id="codigo-producto" value="${siguienteCodigo}" readonly 
+                           style="background: #f0f0f0; cursor: not-allowed;">
+                    <small style="color: #27ae60;">✓ Código generado automáticamente</small>
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Nombre del Producto: *</label>
-                    <input type="text" 
-                           id="nombre-producto" 
-                           placeholder="Ej: Ceviche Mixto"
-                           maxlength="100">
+                    <input type="text" id="nombre-producto" placeholder="Ej: Ceviche Mixto">
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Descripción:</label>
-                    <textarea id="descripcion-producto" 
-                              rows="3" 
-                              placeholder="Ej: Ceviche con pescado, calamares y camarones"
-                              maxlength="200"></textarea>
+                    <textarea id="descripcion-producto" placeholder="Ej: Ceviche con pescado, calamares y pulpo"></textarea>
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Precio (S/.): *</label>
-                    <input type="number" 
-                           id="precio-producto" 
-                           placeholder="0.00"
-                           min="0"
-                           step="0.50">
+                    <input type="number" id="precio-producto" min="0" step="0.01" placeholder="0.00">
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Categoría: *</label>
                     <select id="categoria-producto">
-                        <option value="">-- Seleccione una categoría --</option>
-                        ${categorias.map(cat => `
-                            <option value="${cat}">${cat}</option>
-                        `).join('')}
+                        <option value="">Selecciona una categoría</option>
+                        ${CATEGORIAS.filter(c => c !== 'Todos').map(cat => 
+                            `<option value="${cat}">${cat}</option>`
+                        ).join('')}
                     </select>
-                </div>
-                
-                <div class="campo-formulario">
-                    <label class="checkbox-contenedor">
-                        <input type="checkbox" id="disponible-producto" checked>
-                        <span>Producto disponible</span>
-                    </label>
                 </div>
             </div>
         `;
         
-        abrirModal('Nuevo Producto', contenido, guardarNuevoProducto);
+        abrirModal('Nuevo Producto', contenido, confirmarNuevoProducto);
+        
+        const btnConfirmar = document.getElementById('modal-btn-confirmar');
+        if (btnConfirmar) {
+            btnConfirmar.style.display = 'inline-flex';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Guardar';
+        }
     }
     
-    async function guardarNuevoProducto() {
-        const codigo = document.getElementById('codigo-producto').value.trim();
+    async function confirmarNuevoProducto() {
         const nombre = document.getElementById('nombre-producto').value.trim();
         const descripcion = document.getElementById('descripcion-producto').value.trim();
         const precio = parseFloat(document.getElementById('precio-producto').value);
         const categoria = document.getElementById('categoria-producto').value;
-        const disponible = document.getElementById('disponible-producto').checked;
         
-        // Validaciones
         if (!nombre) {
             mostrarNotificacion('Ingresa el nombre del producto', 'error');
             return;
         }
         
-        if (!precio || precio <= 0) {
+        if (!precio || precio < 0) {
             mostrarNotificacion('Ingresa un precio válido', 'error');
             return;
         }
@@ -356,23 +270,24 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    codigoProducto: codigo || `PROD-${Date.now()}`,
                     nombreProducto: nombre,
                     descripcionProducto: descripcion,
                     precioProducto: precio,
                     categoriaProducto: categoria,
-                    disponibleProducto: disponible
+                    disponibleProducto: true
                 })
             });
             
             if (response.ok) {
+                const productoCreado = await response.json();
                 cerrarModal();
                 await cargarProductos();
                 renderizarProductos();
-                mostrarNotificacion(`${nombre} agregado exitosamente`, 'exito');
-                console.log('✅ Producto creado en BD');
+                mostrarNotificacion(`Producto "${productoCreado.codigoProducto}" creado`, 'exito');
+                console.log('✅ Producto creado:', productoCreado.codigoProducto);
             } else {
-                mostrarNotificacion('Error al crear producto', 'error');
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al crear producto', 'error');
             }
         } catch (error) {
             console.error('❌ Error:', error);
@@ -380,162 +295,118 @@
         }
     }
     
-    // ==========================================
-    // 🔥 EDITAR PRODUCTO (UPDATE)
-    // ==========================================
-    
-    function abrirEditarProducto(idProducto) {
-        const producto = productosData.find(p => p.idBackend === idProducto);
-        
+    function editarProducto(idProducto) {
+        const producto = productosData.find(p => p.idProducto === idProducto);
         if (!producto) {
             mostrarNotificacion('Producto no encontrado', 'error');
             return;
         }
         
-        console.log(`✏️ Editando producto: ${producto.nombre}`);
-        
         let contenido = `
             <div class="formulario-producto">
-                <div class="campo-formulario">
-                    <label>Código:</label>
-                    <input type="text" 
-                           id="codigo-producto-editar"
-                           value="${producto.id}"
-                           maxlength="20">
+                <div class="campo-form">
+                    <label>Código del Producto:</label>
+                    <input type="text" value="${producto.codigoProducto}" readonly 
+                           style="background: #f0f0f0; cursor: not-allowed;">
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Nombre del Producto: *</label>
-                    <input type="text" 
-                           id="nombre-producto-editar" 
-                           value="${producto.nombre}"
-                           maxlength="100">
+                    <input type="text" id="nombre-producto-edit" value="${producto.nombreProducto}">
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Descripción:</label>
-                    <textarea id="descripcion-producto-editar" 
-                              rows="3" 
-                              maxlength="200">${producto.descripcion || ''}</textarea>
+                    <textarea id="descripcion-producto-edit">${producto.descripcionProducto || ''}</textarea>
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Precio (S/.): *</label>
-                    <input type="number" 
-                           id="precio-producto-editar" 
-                           value="${producto.precio}"
-                           min="0"
-                           step="0.50">
+                    <input type="number" id="precio-producto-edit" min="0" step="0.01" 
+                           value="${producto.precioProducto}">
                 </div>
                 
-                <div class="campo-formulario">
+                <div class="campo-form">
                     <label>Categoría: *</label>
-                    <select id="categoria-producto-editar">
-                        ${categorias.map(cat => `
-                            <option value="${cat}" ${producto.categoria === cat ? 'selected' : ''}>
-                                ${cat}
-                            </option>
-                        `).join('')}
+                    <select id="categoria-producto-edit">
+                        ${CATEGORIAS.filter(c => c !== 'Todos').map(cat => 
+                            `<option value="${cat}" ${producto.categoriaProducto === cat ? 'selected' : ''}>${cat}</option>`
+                        ).join('')}
                     </select>
-                </div>
-                
-                <div class="campo-formulario">
-                    <label class="checkbox-contenedor">
-                        <input type="checkbox" 
-                               id="disponible-producto-editar" 
-                               ${producto.disponible ? 'checked' : ''}>
-                        <span>Producto disponible</span>
-                    </label>
                 </div>
             </div>
         `;
         
-        abrirModal('Editar Producto', contenido, function() {
-            guardarEdicionProducto(idProducto);
+        abrirModal('Editar Producto', contenido, async function() {
+            const nombre = document.getElementById('nombre-producto-edit').value.trim();
+            const descripcion = document.getElementById('descripcion-producto-edit').value.trim();
+            const precio = parseFloat(document.getElementById('precio-producto-edit').value);
+            const categoria = document.getElementById('categoria-producto-edit').value;
+            
+            if (!nombre || !precio || precio < 0 || !categoria) {
+                mostrarNotificacion('Completa los campos correctamente', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/productos/${idProducto}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombreProducto: nombre,
+                        descripcionProducto: descripcion,
+                        precioProducto: precio,
+                        categoriaProducto: categoria
+                    })
+                });
+                
+                if (response.ok) {
+                    cerrarModal();
+                    await cargarProductos();
+                    renderizarProductos();
+                    mostrarNotificacion('Producto actualizado', 'exito');
+                } else {
+                    const error = await response.json();
+                    mostrarNotificacion(error.error || 'Error al actualizar', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                mostrarNotificacion('Error de conexión', 'error');
+            }
         });
+        
+        const btnConfirmar = document.getElementById('modal-btn-confirmar');
+        if (btnConfirmar) {
+            btnConfirmar.style.display = 'inline-flex';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Actualizar';
+        }
     }
     
-    async function guardarEdicionProducto(idProducto) {
-        const codigo = document.getElementById('codigo-producto-editar').value.trim();
-        const nombre = document.getElementById('nombre-producto-editar').value.trim();
-        const descripcion = document.getElementById('descripcion-producto-editar').value.trim();
-        const precio = parseFloat(document.getElementById('precio-producto-editar').value);
-        const categoria = document.getElementById('categoria-producto-editar').value;
-        const disponible = document.getElementById('disponible-producto-editar').checked;
-        
-        // Validaciones
-        if (!nombre) {
-            mostrarNotificacion('Ingresa el nombre del producto', 'error');
-            return;
-        }
-        
-        if (!precio || precio <= 0) {
-            mostrarNotificacion('Ingresa un precio válido', 'error');
-            return;
-        }
-        
-        if (!categoria) {
-            mostrarNotificacion('Selecciona una categoría', 'error');
-            return;
-        }
-        
+    async function toggleDisponibilidad(idProducto, disponible) {
         try {
-            const response = await fetch(`${API_URL}/productos/${idProducto}`, {
+            const response = await fetch(`${API_URL}/productos/${idProducto}/disponibilidad`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    codigoProducto: codigo,
-                    nombreProducto: nombre,
-                    descripcionProducto: descripcion,
-                    precioProducto: precio,
-                    categoriaProducto: categoria,
-                    disponibleProducto: disponible
-                })
+                body: JSON.stringify({ disponible: disponible })
             });
             
             if (response.ok) {
-                cerrarModal();
                 await cargarProductos();
                 renderizarProductos();
-                mostrarNotificacion(`${nombre} actualizado exitosamente`, 'exito');
-                console.log('✅ Producto actualizado en BD');
-            } else {
-                mostrarNotificacion('Error al actualizar producto', 'error');
+                mostrarNotificacion(disponible ? 'Producto disponible' : 'Producto no disponible', 'exito');
             }
         } catch (error) {
             console.error('❌ Error:', error);
-            mostrarNotificacion('Error de conexión', 'error');
         }
-    }
-    
-    // ==========================================
-    // 🔥 ELIMINAR PRODUCTO (DELETE)
-    // ==========================================
-    
-    function confirmarEliminarProducto(idProducto) {
-        const producto = productosData.find(p => p.idBackend === idProducto);
-        
-        if (!producto) {
-            mostrarNotificacion('Producto no encontrado', 'error');
-            return;
-        }
-        
-        if (!confirmar(`¿Eliminar el producto "${producto.nombre}"?\n\nCódigo: ${producto.id}\nPrecio: ${formatearMoneda(producto.precio)}\nCategoría: ${producto.categoria}\n\nEsta acción no se puede deshacer.`)) {
-            return;
-        }
-        
-        eliminarProducto(idProducto);
     }
     
     async function eliminarProducto(idProducto) {
-        const producto = productosData.find(p => p.idBackend === idProducto);
+        const producto = productosData.find(p => p.idProducto === idProducto);
+        if (!producto) return;
         
-        if (!producto) {
-            mostrarNotificacion('Producto no encontrado', 'error');
+        if (!confirmar(`¿Eliminar el producto "${producto.nombreProducto}"?`)) {
             return;
         }
-        
-        const nombreProducto = producto.nombre;
         
         try {
             const response = await fetch(`${API_URL}/productos/${idProducto}`, {
@@ -545,10 +416,10 @@
             if (response.ok) {
                 await cargarProductos();
                 renderizarProductos();
-                mostrarNotificacion(`${nombreProducto} eliminado`, 'exito');
-                console.log('🗑️ Producto eliminado de BD');
+                mostrarNotificacion('Producto eliminado', 'exito');
             } else {
-                mostrarNotificacion('Error al eliminar producto', 'error');
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al eliminar', 'error');
             }
         } catch (error) {
             console.error('❌ Error:', error);
@@ -560,19 +431,21 @@
     // EXPORTAR FUNCIONES GLOBALES
     // ==========================================
     
-    window.cambiarDisponibilidad = cambiarDisponibilidad;
     window.nuevoProducto = nuevoProducto;
-    window.abrirEditarProducto = abrirEditarProducto;
-    window.confirmarEliminarProducto = confirmarEliminarProducto;
+    window.editarProducto = editarProducto;
+    window.eliminarProducto = eliminarProducto;
+    window.toggleDisponibilidad = toggleDisponibilidad;
+    window.filtrarCategoria = filtrarCategoria;
+    window.buscarProducto = buscarProducto;
     
     // ==========================================
-    // EXPORTAR API PÚBLICA DEL MÓDULO
+    // EXPORTAR API PÚBLICA
     // ==========================================
     
     window.Productos = {
         inicializar: inicializar,
-        renderizar: renderizarProductos,
-        cargar: cargarProductos
+        cargarProductos: cargarProductos,
+        renderizarProductos: renderizarProductos
     };
     
     console.log('✅ Módulo Productos cargado - Modo API REST');
@@ -583,46 +456,6 @@
 // ==========================================
 const estilosProductos = document.createElement('style');
 estilosProductos.textContent = `
-    .barra-busqueda-productos { margin-bottom: 20px; }
-    .campo-busqueda { position: relative; max-width: 600px; }
-    .campo-busqueda i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #7f8c8d; font-size: 16px; }
-    .input-busqueda-grande { width: 100%; padding: 12px 15px 12px 45px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; transition: all 0.3s; }
-    .input-busqueda-grande:focus { outline: none; border-color: var(--color-secundario); box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1); }
-    .filtros-productos { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
-    .filtro-btn { padding: 10px 20px; border: 2px solid #ecf0f1; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
-    .filtro-btn:hover { border-color: var(--color-secundario); color: var(--color-secundario); transform: translateY(-2px); }
-    .filtro-btn.activo { background: var(--color-secundario); color: white; border-color: var(--color-secundario); }
-    .contenedor-productos { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
-    .tarjeta-producto { background: var(--fondo-tarjeta); border-radius: var(--radio-borde); padding: 20px; box-shadow: var(--sombra-tarjeta); transition: transform 0.2s; display: flex; flex-direction: column; gap: 15px; }
-    .tarjeta-producto:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
-    .producto-codigo { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .codigo-badge { background: rgba(52, 152, 219, 0.1); color: var(--color-secundario); padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; font-family: 'Courier New', monospace; }
-    .categoria-badge { background: rgba(243, 156, 18, 0.1); color: #f39c12; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-    .producto-info-principal { flex: 1; }
-    .producto-nombre { margin: 0 0 8px 0; color: var(--color-primario); font-size: 18px; font-weight: 600; }
-    .producto-descripcion { margin: 0; color: #7f8c8d; font-size: 14px; line-height: 1.4; }
-    .producto-precio-estado { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 1px solid #ecf0f1; border-bottom: 1px solid #ecf0f1; }
-    .producto-precio { font-size: 24px; font-weight: bold; color: var(--color-exito); }
-    .switch-disponibilidad { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-    .switch-disponibilidad input { display: none; }
-    .slider { position: relative; width: 50px; height: 26px; background: #ccc; border-radius: 26px; transition: 0.3s; }
-    .slider::before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.3s; }
-    .switch-disponibilidad input:checked + .slider { background: var(--color-exito); }
-    .switch-disponibilidad input:checked + .slider::before { transform: translateX(24px); }
-    .texto-disponibilidad { font-size: 14px; font-weight: 500; min-width: 80px; }
-    .producto-acciones { display: flex; gap: 10px; }
-    .producto-acciones .btn { flex: 1; }
-    .formulario-producto { padding: 10px 0; }
-    .campo-formulario { margin-bottom: 20px; }
-    .campo-formulario label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--texto-secundario); }
-    .campo-formulario input[type="text"], .campo-formulario input[type="number"], .campo-formulario textarea, .campo-formulario select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; transition: border-color 0.3s; }
-    .campo-formulario input:focus, .campo-formulario textarea:focus, .campo-formulario select:focus { outline: none; border-color: var(--color-secundario); }
-    .checkbox-contenedor { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-    .checkbox-contenedor input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
-    @media (max-width: 768px) {
-        .contenedor-productos { grid-template-columns: 1fr; }
-        .filtros-productos { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 10px; }
-        .filtro-btn { white-space: nowrap; }
-    }
+    .filtro-categoria{background:white;border:1px solid #ddd;padding:10px 20px;border-radius:20px;cursor:pointer;transition:all .3s;font-size:14px}.filtro-categoria.activo,.filtro-categoria:hover{background:var(--color-primario);color:white;border-color:var(--color-primario)}.grid-productos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:20px}.tarjeta-producto{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative;transition:all .3s}.tarjeta-producto:hover{box-shadow:0 4px 12px rgba(0,0,0,.15);transform:translateY(-3px)}.tarjeta-producto.no-disponible{opacity:.6}.producto-badge{position:absolute;top:10px;left:10px;background:var(--color-primario);color:white;padding:5px 10px;border-radius:5px;font-size:12px;font-weight:bold}.badge-categoria{position:absolute;top:10px;right:10px;background:#ecf0f1;color:#7f8c8d;padding:5px 10px;border-radius:5px;font-size:11px}.tarjeta-producto h3{margin:30px 0 10px 0;color:var(--color-texto)}.tarjeta-producto .descripcion{color:#7f8c8d;font-size:14px;margin-bottom:15px;min-height:40px}.producto-precio{font-size:24px;font-weight:bold;color:var(--color-exito);margin-bottom:15px}.producto-disponibilidad{display:flex;align-items:center;gap:10px;margin-bottom:15px}.switch{position:relative;width:50px;height:26px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;transition:.3s;border-radius:26px}.slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:white;transition:.3s;border-radius:50%}input:checked+.slider{background:var(--color-exito)}input:checked+.slider:before{transform:translateX(24px)}.producto-acciones{display:flex;gap:10px}.producto-acciones .btn{flex:1}.mensaje-vacio{text-align:center;padding:40px;color:#7f8c8d;grid-column:1/-1}
 `;
 document.head.appendChild(estilosProductos);

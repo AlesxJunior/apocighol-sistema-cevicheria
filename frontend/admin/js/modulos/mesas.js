@@ -1,1096 +1,508 @@
 /* ==========================================
-   MESAS.JS - CONECTADO A API REST MYSQL
-   🔥 VERSIÓN CON SELECTOR DE MESEROS DESDE API
-   🔥 CORREGIDO: Usa endpoint /cobrar en lugar de DELETE
+   MESAS.JS - CONECTADO CON BACKEND
+   🔥 COBRO REGISTRA EN CAJA VIA API
    ========================================== */
 
 (function() {
-    // URLs de API
-    const API_URL = 'http://localhost:8085/api/mesas';
-    const API_USUARIOS = 'http://localhost:8085/api/usuarios';
-    const API_PEDIDOS = 'http://localhost:8085/api/pedidos';
-    
+    const API_URL = 'http://localhost:8085/api';
     let mesasData = [];
-    let meserosData = [];
-    let totalACobrar = 0;
     
     // ==========================================
     // INICIALIZACIÓN
     // ==========================================
     
     async function inicializar() {
-        console.log('🪑 Inicializando módulo Mesas (API)...');
+        console.log('🪑 Inicializando módulo Mesas...');
         await cargarMesas();
-        await cargarMeseros();
         renderizarMesas();
-
-        if (window.sesionActual && window.sesionActual.rol === 'CAJERO') {
-            setTimeout(() => {
-                const btnNuevaMesa = document.querySelector('.encabezado-seccion button[onclick="agregarMesa()"]');
-                if (btnNuevaMesa) {
-                    btnNuevaMesa.style.display = 'none';
-                    console.log('❌ Botón "Nueva Mesa" oculto para CAJERO');
-                }
-            }, 100);
-        }
-        console.log('✅ Módulo Mesas inicializado (API)');
+        console.log('✅ Módulo Mesas inicializado');
     }
-    
-    // ==========================================
-    // 🔥 CARGAR MESAS DESDE API
-    // ==========================================
     
     async function cargarMesas() {
         try {
-            const response = await fetch(API_URL);
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
+            const response = await fetch(`${API_URL}/mesas`);
+            if (response.ok) {
+                mesasData = await response.json();
+                console.log(`📊 ${mesasData.length} mesas cargadas`);
+            } else {
+                mesasData = crearMesasPorDefecto();
             }
-            
-            const mesasAPI = await response.json();
-            
-            mesasData = mesasAPI.map(mesa => ({
-                id: mesa.idMesa,
-                numero: mesa.numeroMesa,
-                capacidad: mesa.capacidadMesa,
-                estado: mesa.estadoMesa || 'disponible',
-                cantidadPersonas: mesa.personasActuales || 0,
-                mesero: mesa.meseroAsignado || null,
-                horaInicio: mesa.horaOcupacionMesa || null,
-                totalGastado: parseFloat(mesa.totalConsumoMesa) || 0,
-                pedidos: []
-            }));
-            
-            console.log(`📊 ${mesasData.length} mesas cargadas desde API`);
-            
         } catch (error) {
-            console.error('❌ Error al cargar mesas:', error);
-            mostrarNotificacion('Error al cargar mesas del servidor', 'error');
-            mesasData = [];
+            console.error('❌ Error:', error);
+            mesasData = crearMesasPorDefecto();
         }
     }
     
-    // ==========================================
-    // 🔥 CARGAR MESEROS DESDE API USUARIOS
-    // ==========================================
-    
-    async function cargarMeseros() {
-        try {
-            const response = await fetch(API_USUARIOS);
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            
-            const usuarios = await response.json();
-            
-            meserosData = usuarios
-                .filter(u => u.rolUsuario === 'MESERO' || u.rolUsuario === 'ADMIN')
-                .map(u => ({
-                    id: u.idUsuario,
-                    nombre: u.nombreUsuario,
-                    rol: u.rolUsuario
-                }));
-            
-            console.log(`👥 ${meserosData.length} meseros cargados desde API`);
-            
-        } catch (error) {
-            console.error('❌ Error al cargar meseros:', error);
-            meserosData = [];
+    function crearMesasPorDefecto() {
+        const mesas = [];
+        for (let i = 1; i <= 15; i++) {
+            mesas.push({
+                idMesa: i, numeroMesa: i, capacidadMesa: 4,
+                estadoMesa: 'disponible', cantidadPersonas: 0,
+                mesero: null, horaInicio: null, totalConsumoMesa: 0
+            });
         }
+        return mesas;
     }
     
     // ==========================================
-    // RENDERIZAR MESAS
+    // RENDERIZADO
     // ==========================================
     
     function renderizarMesas() {
-        const contenedor = document.getElementById('mesas-contenido');
+        const contenedor = document.getElementById('grid-mesas');
         if (!contenedor) return;
-        
-        if (mesasData.length === 0) {
-            contenedor.innerHTML = `
-                <div class="tarjeta texto-centro">
-                    <p>No hay mesas registradas</p>
-                    <button class="btn btn-primario" onclick="agregarMesa()">
-                        <i class="fas fa-plus"></i> Crear Nueva Mesa
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
         contenedor.innerHTML = mesasData.map(mesa => crearTarjetaMesa(mesa)).join('');
     }
     
     function crearTarjetaMesa(mesa) {
-        const estadoClass = mesa.estado;
-        const badgeClass = `badge-${mesa.estado}`;
+        const numero = mesa.numeroMesa || mesa.numero;
+        const estado = mesa.estadoMesa || mesa.estado || 'disponible';
+        const personas = mesa.cantidadPersonas || 0;
+        const total = parseFloat(mesa.totalConsumoMesa || mesa.totalGastado || 0);
+        const horaInicio = mesa.horaInicio;
+        
+        let tiempoStr = '';
+        if (horaInicio && estado === 'ocupada') {
+            tiempoStr = calcularTiempoTranscurrido(horaInicio);
+        }
+        
+        const claseEstado = estado === 'ocupada' ? 'mesa-ocupada' : 
+                           estado === 'reservada' ? 'mesa-reservada' : 'mesa-disponible';
         
         return `
-            <div class="tarjeta-mesa ${estadoClass}" onclick="abrirDetallesMesa(${mesa.numero})">
-                <div class="mesa-numero">
-                    <i class="fas fa-table"></i>
-                    Mesa ${mesa.numero}
+            <div class="tarjeta-mesa ${claseEstado}" onclick="verDetalleMesa(${numero})">
+                <div class="mesa-header">
+                    <i class="fas fa-utensils"></i>
+                    <span class="numero-mesa">Mesa ${numero}</span>
                 </div>
-                
-                <div class="badge ${badgeClass}">
-                    ${mesa.estado.toUpperCase()}
+                <div class="mesa-estado">
+                    <span class="badge-estado badge-${estado}">${estado.toUpperCase()}</span>
                 </div>
-                
-                ${mesa.estado === 'ocupada' ? `
+                ${estado === 'ocupada' ? `
                     <div class="mesa-info">
-                        <i class="fas fa-users"></i> ${mesa.cantidadPersonas} personas
+                        <p><i class="fas fa-users"></i> ${personas} personas</p>
+                        ${tiempoStr ? `<p><i class="fas fa-clock"></i> ${tiempoStr}</p>` : ''}
+                        <p class="mesa-total">$ S/. ${total.toFixed(2)}</p>
                     </div>
+                ` : `
                     <div class="mesa-info">
-                        <i class="fas fa-clock"></i> ${mesa.horaInicio || '--:--'}
+                        <p><i class="fas fa-chair"></i> Capacidad: ${mesa.capacidadMesa || 4}</p>
                     </div>
-                    <div class="mesa-info">
-                        <i class="fas fa-dollar-sign"></i> ${formatearMoneda(mesa.totalGastado)}
-                    </div>
-                ` : ''}
-                
-                ${mesa.estado === 'disponible' ? `
-                    <div class="mesa-info" style="color: var(--color-exito);">
-                        <i class="fas fa-check-circle"></i> Disponible
-                    </div>
-                ` : ''}
-                
-                ${mesa.estado === 'reservada' ? `
-                    <div class="mesa-info">
-                        <i class="fas fa-calendar"></i> Reservada
-                    </div>
-                ` : ''}
+                `}
             </div>
         `;
     }
     
+    function calcularTiempoTranscurrido(horaInicio) {
+        if (!horaInicio) return '';
+        const ahora = new Date();
+        let inicio;
+        if (typeof horaInicio === 'string') {
+            if (horaInicio.includes('T')) {
+                inicio = new Date(horaInicio);
+            } else {
+                const [h, m, s] = horaInicio.split(':');
+                inicio = new Date();
+                inicio.setHours(parseInt(h), parseInt(m), parseInt(s) || 0);
+            }
+        } else {
+            inicio = new Date(horaInicio);
+        }
+        const diff = Math.floor((ahora - inicio) / 1000);
+        const horas = Math.floor(diff / 3600);
+        const minutos = Math.floor((diff % 3600) / 60);
+        const segundos = diff % 60;
+        return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+    }
+    
     // ==========================================
-    // ABRIR DETALLES DE MESA
+    // VER DETALLE DE MESA
     // ==========================================
     
-    function abrirDetallesMesa(numeroMesa) {
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
+    async function verDetalleMesa(numeroMesa) {
+        const mesa = mesasData.find(m => (m.numeroMesa || m.numero) === numeroMesa);
         if (!mesa) {
             mostrarNotificacion('Mesa no encontrada', 'error');
             return;
         }
         
-        let contenido = `
-            <div class="detalle-mesa">
-                <p style="margin-bottom: 15px;"><strong>Estado actual:</strong> 
-                    <span class="badge badge-${mesa.estado}">${mesa.estado.toUpperCase()}</span>
-                </p>
-        `;
+        const estado = mesa.estadoMesa || mesa.estado || 'disponible';
         
-        if (mesa.estado === 'ocupada') {
-            contenido += `
-                <div class="info-mesa-ocupada">
-                    <p><strong>Personas:</strong> ${mesa.cantidadPersonas}</p>
-                    <p><strong>Hora inicio:</strong> ${mesa.horaInicio || '--:--'}</p>
-                    <p><strong>Mesero:</strong> ${mesa.mesero || 'No asignado'}</p>
-                    <p><strong>Total gastado:</strong> ${formatearMoneda(mesa.totalGastado)}</p>
-                </div>
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid #ecf0f1;">
-                <div style="text-align: center;">
-                    <button class="btn btn-exito btn-cobrar-mesa" onclick="cobrarMesaModal(${mesa.numero})" style="margin-right: 10px;">
-                        <i class="fas fa-dollar-sign"></i> Cobrar Mesa
-                    </button>
-                    <button class="btn btn-peligro" onclick="liberarMesa(${mesa.numero})">
-                        <i class="fas fa-door-open"></i> Liberar Mesa
-                    </button>
-                </div>
-            `;
+        if (estado === 'disponible') {
+            mostrarFormularioOcupar(numeroMesa, mesa);
+        } else if (estado === 'ocupada') {
+            mostrarDetalleMesaOcupada(numeroMesa, mesa);
         }
-
-        else if (mesa.estado === 'disponible') {
-            if (window.sesionActual && window.sesionActual.rol === 'CAJERO') {
-                contenido += `
-                    <div class="info-mesa-ocupada">
-                        <p style="text-align: center; color: #e67e22;">
-                            <i class="fas fa-info-circle"></i><br><br>
-                            Solo el mesero puede ocupar mesas
-                        </p>
-                    </div>
-                `;
-            } else if (window.sesionActual && window.sesionActual.rol === 'MESERO') {
-                const nombreMeseroActual = window.sesionActual.nombre || window.sesionActual.usuario || 'Mesero';
-                contenido += `
-                    <div class="formulario-ocupar">
-                        <div class="campo-form">
-                            <label>Cantidad de personas:</label>
-                            <input type="number" id="cantidad-personas" min="1" max="${mesa.capacidad || 10}" value="2">
-                        </div>
-                        <div class="campo-form">
-                            <label>Mesero asignado:</label>
-                            <div class="mesero-autoasignado">
-                                <i class="fas fa-user-check"></i>
-                                <span><strong>${nombreMeseroActual}</strong></span>
-                                <small>(Tú)</small>
-                            </div>
-                            <input type="hidden" id="nombre-mesero" value="${nombreMeseroActual}">
-                        </div>
-                    </div>
-                    <hr style="margin: 15px 0; border: none; border-top: 1px solid #ecf0f1;">
-                    <div style="text-align: center;">
-                        <button class="btn btn-exito" onclick="ocuparMesaModal(${mesa.numero})">
-                            <i class="fas fa-users"></i> Ocupar Mesa
-                        </button>
-                    </div>
-                `;
-            } else {
-                contenido += `
-                    <div class="formulario-ocupar">
-                        <div class="campo-form">
-                            <label>Cantidad de personas:</label>
-                            <input type="number" id="cantidad-personas" min="1" max="${mesa.capacidad || 10}" value="2">
-                        </div>
-                        <div class="campo-form">
-                            <label>Asignar a Mesero: *</label>
-                            <select id="nombre-mesero" class="select-grande">
-                                <option value="">-- Seleccione un mesero --</option>
-                                ${meserosData.map(m => `
-                                    <option value="${m.nombre}">${m.nombre} (${m.rol})</option>
-                                `).join('')}
-                            </select>
-                            ${meserosData.length === 0 ? `
-                                <small style="color: #e74c3c; display: block; margin-top: 5px;">
-                                    <i class="fas fa-exclamation-triangle"></i> No hay meseros registrados
-                                </small>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <hr style="margin: 15px 0; border: none; border-top: 1px solid #ecf0f1;">
-                    <div style="text-align: center;">
-                        <button class="btn btn-exito" onclick="ocuparMesaModal(${mesa.numero})">
-                            <i class="fas fa-users"></i> Ocupar Mesa
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        else if (mesa.estado === 'reservada') {
-            contenido += `
-                <div class="info-mesa-ocupada">
-                    <p>Esta mesa está reservada</p>
-                </div>
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid #ecf0f1;">
-                <div style="text-align: center;">
-                    <button class="btn btn-secundario" onclick="liberarMesa(${mesa.numero})">
-                        <i class="fas fa-times"></i> Cancelar Reserva
-                    </button>
-                </div>
-            `;
-        }
-        
-        contenido += `</div>`;
-        abrirModal(`Mesa ${mesa.numero}`, contenido, null);
-        document.getElementById('modal-btn-confirmar').style.display = 'none';
-
-        setTimeout(() => {
-            if (window.sesionActual && window.sesionActual.rol === 'MESERO') {
-                const btnCobrar = document.querySelector('.btn-cobrar-mesa');
-                if (btnCobrar) {
-                    btnCobrar.style.display = 'none';
-                    console.log('❌ Botón "Cobrar" oculto para MESERO');
-                }
-            }
-        }, 100);
     }
     
     // ==========================================
-    // 🔥 OCUPAR MESA - API
+    // OCUPAR MESA
     // ==========================================
     
-    async function ocuparMesaModal(numeroMesa) {
-        const cantidadPersonas = document.getElementById('cantidad-personas').value;
-        const nombreMesero = document.getElementById('nombre-mesero').value;
+    function mostrarFormularioOcupar(numeroMesa, mesa) {
+        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+        
+        let contenido = `
+            <div class="formulario-mesa">
+                <div class="campo-form">
+                    <label>Cantidad de Personas: *</label>
+                    <input type="number" id="cantidad-personas" min="1" max="${mesa.capacidadMesa || 8}" value="2">
+                </div>
+                <div class="campo-form">
+                    <label>Mesero Responsable:</label>
+                    <input type="text" id="mesero-mesa" value="${usuario.nombreCompleto || 'Sin asignar'}" readonly>
+                </div>
+            </div>
+        `;
+        
+        abrirModal(`Ocupar Mesa ${numeroMesa}`, contenido, function() {
+            confirmarOcuparMesa(numeroMesa);
+        });
+        
+        const btnConfirmar = document.getElementById('modal-btn-confirmar');
+        if (btnConfirmar) {
+            btnConfirmar.style.display = 'inline-flex';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Ocupar';
+        }
+    }
+    
+    async function confirmarOcuparMesa(numeroMesa) {
+        const cantidadPersonas = parseInt(document.getElementById('cantidad-personas').value);
+        const mesero = document.getElementById('mesero-mesa').value;
         
         if (!cantidadPersonas || cantidadPersonas < 1) {
             mostrarNotificacion('Ingresa la cantidad de personas', 'error');
             return;
         }
         
-        if (!nombreMesero || nombreMesero.trim() === '') {
-            mostrarNotificacion('Selecciona un mesero', 'error');
-            return;
-        }
-        
-        await ocuparMesa(numeroMesa, parseInt(cantidadPersonas), nombreMesero);
-        cerrarModal();
-    }
-    
-    async function ocuparMesa(numeroMesa, personas, mesero = '') {
-        const cajaActual = obtenerDatos('cajaActual');
-        if (!cajaActual) {
-            mostrarNotificacion('⚠️ Debes abrir la caja primero para atender mesas', 'error');
-            return;
-        }
-        
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
-        
-        if (!mesa) {
-            mostrarNotificacion('Mesa no encontrada', 'error');
-            return;
-        }
-        
-        if (mesa.estado !== 'disponible') {
-            mostrarNotificacion('La mesa no está disponible', 'error');
-            return;
-        }
-        
         try {
-            const response = await fetch(`${API_URL}/${mesa.id}/ocupar`, {
+            const response = await fetch(`${API_URL}/mesas/${numeroMesa}/ocupar`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    personas: personas,
-                    mesero: mesero || 'Sin asignar'
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cantidadPersonas, mesero })
             });
             
-            if (!response.ok) {
+            if (response.ok) {
+                cerrarModal();
+                await cargarMesas();
+                renderizarMesas();
+                mostrarNotificacion(`Mesa ${numeroMesa} ocupada`, 'exito');
+            } else {
                 const error = await response.json();
-                throw new Error(error.error || 'Error al ocupar mesa');
+                mostrarNotificacion(error.error || 'Error al ocupar mesa', 'error');
             }
-            
-            await cargarMesas();
-            renderizarMesas();
-            
-            mostrarNotificacion(`Mesa ${numeroMesa} ocupada con ${personas} personas`, 'exito');
-            console.log(`✅ Mesa ${numeroMesa} ocupada (API)`);
-            
         } catch (error) {
-            console.error('❌ Error al ocupar mesa:', error);
-            mostrarNotificacion(`Error: ${error.message}`, 'error');
-        }
-    }
-    
-    // ==========================================
-    // 🔥 LIBERAR MESA - API
-    // ==========================================
-    
-    async function liberarMesa(numeroMesa) {
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
-        
-        if (!mesa) {
-            mostrarNotificacion('Mesa no encontrada', 'error');
-            return;
-        }
-        
-        if (mesa.totalGastado > 0) {
-            mostrarNotificacion(
-                `⚠️ NO se puede liberar esta mesa.\n\nTiene un consumo de ${formatearMoneda(mesa.totalGastado)} sin cobrar.\n\nDebe cobrarla primero.`,
-                'error'
-            );
-            return;
-        }
-        
-        if (!confirmar(`¿Liberar la mesa ${numeroMesa}?`)) {
-            return;
-        }
-        
-        try {
-            // 🔥 Anular pedidos pendientes (sin cobrar) de la mesa
-            const pedidosResponse = await fetch(`${API_PEDIDOS}/mesa/${numeroMesa}/activos`);
-            
-            if (pedidosResponse.ok) {
-                const pedidosMesa = await pedidosResponse.json();
-                
-                for (const pedido of pedidosMesa) {
-                    // Anular pedidos al liberar mesa sin cobrar
-                    await fetch(`${API_PEDIDOS}/${pedido.idPedido}/anular`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            motivo: 'Mesa liberada sin cobrar',
-                            usuario: window.sesionActual ? window.sesionActual.nombre : 'Sistema'
-                        })
-                    });
-                }
-                
-                if (pedidosMesa.length > 0) {
-                    console.log(`🗑️ ${pedidosMesa.length} pedido(s) de Mesa ${numeroMesa} anulado(s)`);
-                }
-            }
-            
-            const response = await fetch(`${API_URL}/${mesa.id}/liberar`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            console.error('❌ Error:', error);
+            actualizarMesaLocal(numeroMesa, {
+                estadoMesa: 'ocupada', cantidadPersonas, mesero,
+                horaInicio: new Date().toISOString(), totalConsumoMesa: 0
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al liberar mesa');
-            }
-            
-            await cargarMesas();
-            renderizarMesas();
             cerrarModal();
-            
-            mostrarNotificacion(`Mesa ${numeroMesa} liberada`, 'exito');
-            console.log(`✅ Mesa ${numeroMesa} liberada (API)`);
-            
-        } catch (error) {
-            console.error('❌ Error al liberar mesa:', error);
-            mostrarNotificacion(`Error: ${error.message}`, 'error');
+            renderizarMesas();
+            mostrarNotificacion(`Mesa ${numeroMesa} ocupada`, 'exito');
         }
     }
     
     // ==========================================
-    // 🔥 ACTUALIZAR TOTAL MESA - API
+    // DETALLE MESA OCUPADA
     // ==========================================
     
-    async function actualizarTotalMesa(numeroMesa, monto) {
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
+    async function mostrarDetalleMesaOcupada(numeroMesa, mesa) {
+        const total = parseFloat(mesa.totalConsumoMesa || mesa.totalGastado || 0);
+        const personas = mesa.cantidadPersonas || 0;
+        const mesero = mesa.mesero || 'Sin asignar';
         
-        if (!mesa) {
-            console.error(`Mesa ${numeroMesa} no encontrada`);
-            return;
-        }
-        
-        const nuevoTotal = mesa.totalGastado + parseFloat(monto);
+        let pedidosHtml = '<p style="color: #999;">No hay pedidos</p>';
         
         try {
-            const response = await fetch(`${API_URL}/${mesa.id}/total`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    total: nuevoTotal
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Error al actualizar total');
+            const response = await fetch(`${API_URL}/pedidos/mesa/${numeroMesa}`);
+            if (response.ok) {
+                const pedidos = await response.json();
+                const pendientes = pedidos.filter(p => p.estadoPedido !== 'PAGADO' && p.estadoPedido !== 'CANCELADO');
+                if (pendientes.length > 0) {
+                    pedidosHtml = pendientes.map(p => `
+                        <div class="pedido-item">
+                            <span>${p.codigoPedido}</span>
+                            <span class="badge badge-${p.estadoPedido.toLowerCase()}">${p.estadoPedido}</span>
+                            <span>S/. ${parseFloat(p.totalPedido).toFixed(2)}</span>
+                        </div>
+                    `).join('');
+                }
             }
-            
-            mesa.totalGastado = nuevoTotal;
-            renderizarMesas();
-            
-            console.log(`💰 Mesa ${numeroMesa}: +${formatearMoneda(monto)} = ${formatearMoneda(nuevoTotal)} (API)`);
-            
         } catch (error) {
-            console.error('❌ Error al actualizar total:', error);
+            console.error('Error cargando pedidos:', error);
+        }
+        
+        let contenido = `
+            <div class="detalle-mesa">
+                <div class="mesa-resumen">
+                    <div class="info-item">
+                        <i class="fas fa-users"></i>
+                        <span>${personas} personas</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-user-tie"></i>
+                        <span>${mesero}</span>
+                    </div>
+                    <div class="info-item total">
+                        <i class="fas fa-dollar-sign"></i>
+                        <span>S/. ${total.toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                <h4>Pedidos de la Mesa:</h4>
+                <div class="lista-pedidos">${pedidosHtml}</div>
+                
+                <div class="acciones-mesa" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primario" onclick="nuevoPedidoMesa(${numeroMesa})">
+                        <i class="fas fa-plus"></i> Nuevo Pedido
+                    </button>
+                    ${total > 0 ? `
+                        <button class="btn btn-exito" onclick="cobrarMesa(${numeroMesa})">
+                            <i class="fas fa-cash-register"></i> Cobrar
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-peligro" onclick="liberarMesa(${numeroMesa})">
+                        <i class="fas fa-times"></i> Liberar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        abrirModal(`Mesa ${numeroMesa} - Ocupada`, contenido, null);
+        const btnConfirmar = document.getElementById('modal-btn-confirmar');
+        if (btnConfirmar) btnConfirmar.style.display = 'none';
+    }
+    
+    function nuevoPedidoMesa(numeroMesa) {
+        cerrarModal();
+        localStorage.setItem('mesaParaPedido', numeroMesa);
+        if (typeof cambiarSeccion === 'function') {
+            cambiarSeccion('pedidos');
+        } else {
+            mostrarNotificacion('Ir a Pedidos para crear nuevo pedido', 'info');
         }
     }
     
     // ==========================================
-    // 🔥 AGREGAR MESA - API
+    // 🔥 COBRAR MESA - REGISTRA EN CAJA
     // ==========================================
     
-    async function agregarMesa() {
-        const ultimaMesa = mesasData.length > 0 
-            ? Math.max(...mesasData.map(m => m.numero)) 
-            : 0;
-        
-        const numeroNuevo = ultimaMesa + 1;
-        
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    numeroMesa: numeroNuevo,
-                    capacidadMesa: 4,
-                    estadoMesa: 'disponible'
-                })
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al crear mesa');
-            }
-            
-            await cargarMesas();
-            renderizarMesas();
-            
-            mostrarNotificacion(`Mesa ${numeroNuevo} agregada`, 'exito');
-            console.log(`✅ Mesa ${numeroNuevo} creada (API)`);
-            
-        } catch (error) {
-            console.error('❌ Error al crear mesa:', error);
-            mostrarNotificacion(`Error: ${error.message}`, 'error');
-        }
-    }
-    
-    // ==========================================
-    // 🔥 MODAL DE COBRO CON VUELTO
-    // ==========================================
-    
-    function cobrarMesaModal(numeroMesa) {
-        const cajaActual = obtenerDatos('cajaActual');
-        if (!cajaActual) {
-            mostrarNotificacion('⚠️ No se puede cobrar sin caja abierta', 'error');
-            return;
-        }
-        
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
-        
+    async function cobrarMesa(numeroMesa) {
+        const mesa = mesasData.find(m => (m.numeroMesa || m.numero) === numeroMesa);
         if (!mesa) {
             mostrarNotificacion('Mesa no encontrada', 'error');
             return;
         }
         
-        if (mesa.estado !== 'ocupada') {
-            mostrarNotificacion('La mesa no está ocupada', 'error');
-            return;
-        }
+        const total = parseFloat(mesa.totalConsumoMesa || mesa.totalGastado || 0);
         
-        if (mesa.totalGastado <= 0) {
+        if (total <= 0) {
             mostrarNotificacion('La mesa no tiene consumo registrado', 'error');
             return;
         }
         
-        validarPedidosYMostrarCobro(numeroMesa, mesa);
-    }
-    
-    async function validarPedidosYMostrarCobro(numeroMesa, mesa) {
+        // 🔥 Verificar si hay caja abierta
+        let cajaAbierta = false;
         try {
-            const response = await fetch(`${API_PEDIDOS}/mesa/${numeroMesa}/activos`);
-            
+            const response = await fetch(`${API_URL}/caja/estado`);
             if (response.ok) {
-                const pedidosMesa = await response.json();
-                const pedidosNoServidos = pedidosMesa.filter(p => p.estadoPedido !== 'servido');
-                
-                if (pedidosNoServidos.length > 0) {
-                    const estadosPendientes = pedidosNoServidos.map(p => `${p.codigoPedido} (${p.estadoPedido})`).join(', ');
-                    mostrarNotificacion(
-                        `⚠️ No se puede cobrar. Hay ${pedidosNoServidos.length} pedido(s) sin servir: ${estadosPendientes}`,
-                        'error'
-                    );
-                    return;
-                }
+                const data = await response.json();
+                cajaAbierta = data.cajaAbierta;
             }
-            
-            mostrarModalCobro(numeroMesa, mesa);
-            
         } catch (error) {
-            console.error('❌ Error validando pedidos:', error);
-            mostrarModalCobro(numeroMesa, mesa);
+            console.error('Error verificando caja:', error);
         }
-    }
-    
-    function mostrarModalCobro(numeroMesa, mesa) {
-        cerrarModal();
         
-        totalACobrar = mesa.totalGastado;
+        if (!cajaAbierta) {
+            mostrarNotificacion('⚠️ No hay caja abierta. Abre la caja primero en el módulo Caja.', 'error');
+            return;
+        }
+        
+        cerrarModal();
         
         let contenido = `
             <div class="formulario-cobro">
                 <div style="text-align: center; margin-bottom: 20px;">
                     <h3>Mesa ${numeroMesa}</h3>
-                    <p style="font-size: 28px; font-weight: bold; color: var(--color-primario);">
-                        Total: ${formatearMoneda(mesa.totalGastado)}
+                    <p style="font-size: 28px; font-weight: bold; color: var(--color-exito);">
+                        Total: S/. ${total.toFixed(2)}
                     </p>
                 </div>
                 
                 <div class="campo-form">
                     <label>Método de Pago: *</label>
-                    <select id="metodo-pago-cobro" class="select-grande" onchange="toggleCampoVuelto()">
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Yape">Yape</option>
-                        <option value="Plin">Plin</option>
-                        <option value="Tarjeta">Tarjeta</option>
+                    <select id="metodo-pago-cobro" class="select-grande" onchange="mostrarCamposEfectivo()">
+                        <option value="Efectivo">💵 Efectivo</option>
+                        <option value="Yape">📱 Yape</option>
+                        <option value="Plin">📱 Plin</option>
+                        <option value="Tarjeta">💳 Tarjeta</option>
                     </select>
                 </div>
                 
-                <div id="seccion-vuelto" class="seccion-vuelto">
+                <div id="campos-efectivo">
                     <div class="campo-form">
-                        <label><i class="fas fa-money-bill-wave"></i> Cliente paga con: *</label>
-                        <div class="input-moneda">
-                            <span class="prefijo-moneda">S/.</span>
-                            <input type="number" 
-                                   id="monto-recibido" 
-                                   placeholder="0.00"
-                                   min="0"
-                                   step="0.10"
-                                   oninput="calcularVuelto()"
-                                   class="input-monto-grande">
-                        </div>
+                        <label>Monto Recibido:</label>
+                        <input type="number" id="monto-recibido" min="0" step="0.01" 
+                               value="${total.toFixed(2)}" onchange="calcularVuelto(${total})">
                     </div>
-                    
-                    <div class="botones-monto-rapido">
-                        <button type="button" class="btn-monto" onclick="setMontoRapido(10)">S/. 10</button>
-                        <button type="button" class="btn-monto" onclick="setMontoRapido(20)">S/. 20</button>
-                        <button type="button" class="btn-monto" onclick="setMontoRapido(50)">S/. 50</button>
-                        <button type="button" class="btn-monto" onclick="setMontoRapido(100)">S/. 100</button>
-                        <button type="button" class="btn-monto" onclick="setMontoRapido(200)">S/. 200</button>
-                        <button type="button" class="btn-monto btn-monto-exacto" onclick="setMontoExacto()">Exacto</button>
-                    </div>
-                    
-                    <div id="resultado-vuelto" class="resultado-vuelto">
-                        <div class="vuelto-label">VUELTO A ENTREGAR:</div>
-                        <div class="vuelto-monto" id="monto-vuelto">S/. 0.00</div>
-                    </div>
-                    
-                    <div id="error-monto" class="error-monto" style="display: none;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>El monto recibido es insuficiente</span>
-                    </div>
-                </div>
-                
-                <div id="mensaje-pago-digital" class="mensaje-pago-digital" style="display: none;">
-                    <i class="fas fa-mobile-alt"></i>
-                    <p>Pago digital - Monto exacto: <strong>${formatearMoneda(mesa.totalGastado)}</strong></p>
-                    <small>No se requiere vuelto</small>
-                </div>
-                
-                <hr style="margin: 20px 0; border: 1px solid #ecf0f1;">
-                
-                <div style="margin: 20px 0;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="requiere-comprobante" onchange="toggleComprobante()" style="width: 20px; height: 20px;">
-                        <span style="font-weight: bold;">¿Requiere comprobante?</span>
-                    </label>
-                </div>
-                
-                <div id="datos-comprobante" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px;">
                     <div class="campo-form">
-                        <label>Tipo de Comprobante: *</label>
-                        <select id="tipo-comprobante" class="select-grande" onchange="toggleTipoDocumento()">
-                            <option value="boleta">Boleta Electrónica</option>
-                            <option value="factura">Factura Electrónica</option>
-                        </select>
-                    </div>
-                    
-                    <div class="campo-form">
-                        <label id="label-tipo-doc">Tipo de Documento: *</label>
-                        <select id="tipo-documento" class="select-grande">
-                            <option value="DNI">DNI</option>
-                            <option value="CE">Carnet de Extranjería</option>
-                        </select>
-                    </div>
-                    
-                    <div class="campo-form">
-                        <label id="label-numero-doc">Número de DNI: *</label>
-                        <input type="text" 
-                               id="numero-documento" 
-                               placeholder="Ej: 12345678"
-                               maxlength="11">
-                    </div>
-                    
-                    <div class="campo-form">
-                        <label id="label-nombre-cliente">Nombre Completo: *</label>
-                        <input type="text" 
-                               id="nombre-cliente-comprobante" 
-                               placeholder="Ej: Juan Pérez García"
-                               maxlength="200">
-                    </div>
-                    
-                    <div class="campo-form" id="campo-direccion" style="display: none;">
-                        <label>Dirección: *</label>
-                        <input type="text" 
-                               id="direccion-cliente" 
-                               placeholder="Dirección fiscal"
-                               maxlength="300">
+                        <label>Vuelto:</label>
+                        <input type="text" id="vuelto-cobro" value="S/. 0.00" readonly 
+                               style="background: #e8f5e9; font-size: 20px; font-weight: bold; color: #27ae60;">
                     </div>
                 </div>
             </div>
         `;
         
-        abrirModal(`Cobrar Mesa ${numeroMesa}`, contenido, function() {
-            confirmarCobroMesa(numeroMesa);
+        abrirModal(`💰 Cobrar Mesa ${numeroMesa}`, contenido, function() {
+            confirmarCobro(numeroMesa, total);
         });
         
         const btnConfirmar = document.getElementById('modal-btn-confirmar');
         if (btnConfirmar) {
             btnConfirmar.style.display = 'inline-flex';
-            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Cobrar';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Confirmar Cobro';
         }
     }
     
     // ==========================================
-    // FUNCIONES DE VUELTO
+    // 🔥 CONFIRMAR COBRO - REGISTRA EN CAJA API
     // ==========================================
     
-    window.toggleCampoVuelto = function() {
+    async function confirmarCobro(numeroMesa, total) {
         const metodoPago = document.getElementById('metodo-pago-cobro').value;
-        const seccionVuelto = document.getElementById('seccion-vuelto');
-        const mensajeDigital = document.getElementById('mensaje-pago-digital');
+        const montoRecibido = parseFloat(document.getElementById('monto-recibido')?.value || total);
+        const vuelto = Math.max(0, montoRecibido - total);
         
-        if (metodoPago === 'Efectivo') {
-            seccionVuelto.style.display = 'block';
-            mensajeDigital.style.display = 'none';
-            document.getElementById('monto-recibido').value = '';
-            document.getElementById('monto-vuelto').textContent = 'S/. 0.00';
-            document.getElementById('resultado-vuelto').classList.remove('vuelto-positivo');
-            document.getElementById('error-monto').style.display = 'none';
-        } else {
-            seccionVuelto.style.display = 'none';
-            mensajeDigital.style.display = 'flex';
-        }
-    };
-    
-    window.calcularVuelto = function() {
-        const montoRecibido = parseFloat(document.getElementById('monto-recibido').value) || 0;
-        const vuelto = montoRecibido - totalACobrar;
+        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+        const registradoPor = usuario.nombreCompleto || 'Sistema';
         
-        const montoVueltoDiv = document.getElementById('monto-vuelto');
-        const resultadoVuelto = document.getElementById('resultado-vuelto');
-        const errorMonto = document.getElementById('error-monto');
-        
-        if (montoRecibido === 0) {
-            montoVueltoDiv.textContent = 'S/. 0.00';
-            resultadoVuelto.classList.remove('vuelto-positivo', 'vuelto-negativo');
-            errorMonto.style.display = 'none';
-        } else if (vuelto < 0) {
-            montoVueltoDiv.textContent = `- ${formatearMoneda(Math.abs(vuelto))}`;
-            resultadoVuelto.classList.remove('vuelto-positivo');
-            resultadoVuelto.classList.add('vuelto-negativo');
-            errorMonto.style.display = 'flex';
-        } else {
-            montoVueltoDiv.textContent = formatearMoneda(vuelto);
-            resultadoVuelto.classList.remove('vuelto-negativo');
-            resultadoVuelto.classList.add('vuelto-positivo');
-            errorMonto.style.display = 'none';
-        }
-    };
-    
-    window.setMontoRapido = function(monto) {
-        document.getElementById('monto-recibido').value = monto;
-        calcularVuelto();
-    };
-    
-    window.setMontoExacto = function() {
-        document.getElementById('monto-recibido').value = totalACobrar.toFixed(2);
-        calcularVuelto();
-    };
-    
-    window.toggleComprobante = function() {
-        const checkbox = document.getElementById('requiere-comprobante');
-        const datosComprobante = document.getElementById('datos-comprobante');
-        datosComprobante.style.display = checkbox.checked ? 'block' : 'none';
-    };
-    
-    window.toggleTipoDocumento = function() {
-        const tipoComprobante = document.getElementById('tipo-comprobante').value;
-        const tipoDocumento = document.getElementById('tipo-documento');
-        const campoDireccion = document.getElementById('campo-direccion');
-        const labelNumeroDoc = document.getElementById('label-numero-doc');
-        const labelNombre = document.getElementById('label-nombre-cliente');
-        
-        if (tipoComprobante === 'factura') {
-            tipoDocumento.innerHTML = '<option value="RUC">RUC</option>';
-            tipoDocumento.value = 'RUC';
-            campoDireccion.style.display = 'block';
-            labelNumeroDoc.textContent = 'Número de RUC: *';
-            labelNombre.textContent = 'Razón Social: *';
-            document.getElementById('numero-documento').placeholder = 'Ej: 20123456789';
-            document.getElementById('numero-documento').maxLength = 11;
-        } else {
-            tipoDocumento.innerHTML = `
-                <option value="DNI">DNI</option>
-                <option value="CE">Carnet de Extranjería</option>
-            `;
-            tipoDocumento.value = 'DNI';
-            campoDireccion.style.display = 'none';
-            labelNumeroDoc.textContent = 'Número de DNI: *';
-            labelNombre.textContent = 'Nombre Completo: *';
-            document.getElementById('numero-documento').placeholder = 'Ej: 12345678';
-            document.getElementById('numero-documento').maxLength = 8;
-        }
-    };
-    
-    // ==========================================
-    // 🔥 CONFIRMAR COBRO - CON API (CORREGIDO)
-    // ==========================================
-    
-    async function confirmarCobroMesa(numeroMesa) {
-        const mesa = mesasData.find(m => m.numero === numeroMesa);
-        const cajaActual = obtenerDatos('cajaActual');
-        
-        if (!mesa) {
-            mostrarNotificacion('Mesa no encontrada', 'error');
+        if (metodoPago === 'Efectivo' && montoRecibido < total) {
+            mostrarNotificacion('El monto recibido es menor al total', 'error');
             return;
         }
         
-        const metodoPago = document.getElementById('metodo-pago-cobro').value;
-        
-        if (metodoPago === 'Efectivo') {
-            const montoRecibido = parseFloat(document.getElementById('monto-recibido').value) || 0;
-            
-            if (montoRecibido <= 0) {
-                mostrarNotificacion('⚠️ Ingresa el monto recibido del cliente', 'error');
-                document.getElementById('monto-recibido').focus();
-                return;
-            }
-            
-            if (montoRecibido < mesa.totalGastado) {
-                mostrarNotificacion(`⚠️ Monto insuficiente. Faltan ${formatearMoneda(mesa.totalGastado - montoRecibido)}`, 'error');
-                document.getElementById('monto-recibido').focus();
-                return;
-            }
-        }
-        
-        const requiereComprobante = document.getElementById('requiere-comprobante').checked;
-        let datosComprobante = null;
-        
-        if (requiereComprobante) {
-            const tipoComprobante = document.getElementById('tipo-comprobante').value;
-            const tipoDocumento = document.getElementById('tipo-documento').value;
-            const numeroDocumento = document.getElementById('numero-documento').value.trim();
-            const nombreCliente = document.getElementById('nombre-cliente-comprobante').value.trim();
-            
-            if (!numeroDocumento) {
-                mostrarNotificacion('Ingresa el número de documento', 'error');
-                return;
-            }
-            
-            if (!nombreCliente) {
-                mostrarNotificacion('Ingresa el nombre del cliente', 'error');
-                return;
-            }
-            
-            if (tipoDocumento === 'DNI' && numeroDocumento.length !== 8) {
-                mostrarNotificacion('El DNI debe tener 8 dígitos', 'error');
-                return;
-            }
-            
-            if (tipoDocumento === 'RUC' && numeroDocumento.length !== 11) {
-                mostrarNotificacion('El RUC debe tener 11 dígitos', 'error');
-                return;
-            }
-            
-            let direccion = '';
-            if (tipoComprobante === 'factura') {
-                direccion = document.getElementById('direccion-cliente').value.trim();
-                if (!direccion) {
-                    mostrarNotificacion('Ingresa la dirección para factura', 'error');
-                    return;
-                }
-            }
-            
-            const correlativo = generarCorrelativoComprobante(tipoComprobante);
-            
-            datosComprobante = {
-                tipo: tipoComprobante,
-                serie: correlativo.serie,
-                numero: correlativo.numero,
-                completo: correlativo.completo,
-                cliente: {
-                    tipoDocumento: tipoDocumento,
-                    numeroDocumento: numeroDocumento,
-                    nombre: nombreCliente,
-                    direccion: direccion
-                },
-                fechaEmision: obtenerFechaActual(),
-                horaEmision: obtenerHoraActual()
-            };
-        }
-        
-        // 🔥 Obtener productos de pedidos desde API
-        let productosVenta = [];
-        
         try {
-            const response = await fetch(`${API_PEDIDOS}/mesa/${numeroMesa}`);
-            if (response.ok) {
-                const pedidosMesa = await response.json();
-                
-                pedidosMesa.forEach(pedido => {
-                    if (pedido.productos) {
-                        pedido.productos.forEach(prod => {
-                            const productoExistente = productosVenta.find(pv => pv.nombre === prod.nombreProducto);
-                            if (productoExistente) {
-                                productoExistente.cantidad += prod.cantidad;
-                                productoExistente.subtotal += parseFloat(prod.subtotal);
-                            } else {
-                                productosVenta.push({
-                                    nombre: prod.nombreProducto,
-                                    cantidad: prod.cantidad,
-                                    precio: parseFloat(prod.precioUnitario),
-                                    subtotal: parseFloat(prod.subtotal)
-                                });
-                            }
-                        });
+            // 🔥 1. REGISTRAR VENTA EN CAJA (BACKEND)
+            const ventaResponse = await fetch(`${API_URL}/caja/venta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numeroMesa: numeroMesa,
+                    monto: total,
+                    metodoPago: metodoPago,
+                    montoRecibido: metodoPago === 'Efectivo' ? montoRecibido : total,
+                    vuelto: metodoPago === 'Efectivo' ? vuelto : 0,
+                    registradoPor: registradoPor
+                })
+            });
+            
+            if (!ventaResponse.ok) {
+                const error = await ventaResponse.json();
+                throw new Error(error.error || 'Error al registrar venta en caja');
+            }
+            
+            console.log('✅ Venta registrada en caja');
+            
+            // 🔥 2. MARCAR PEDIDOS COMO PAGADOS
+            try {
+                const pedidosResponse = await fetch(`${API_URL}/pedidos/mesa/${numeroMesa}`);
+                if (pedidosResponse.ok) {
+                    const pedidos = await pedidosResponse.json();
+                    for (const pedido of pedidos) {
+                        if (pedido.estadoPedido !== 'PAGADO' && pedido.estadoPedido !== 'CANCELADO') {
+                            await fetch(`${API_URL}/pedidos/${pedido.idPedido}/pagar`, { method: 'PUT' });
+                        }
                     }
-                });
-            }
-        } catch (error) {
-            console.error('Error obteniendo productos:', error);
-        }
-        
-        // Calcular vuelto
-        let vueltoEntregado = 0;
-        let montoRecibidoCliente = 0;
-        
-        if (metodoPago === 'Efectivo') {
-            montoRecibidoCliente = parseFloat(document.getElementById('monto-recibido').value) || 0;
-            vueltoEntregado = montoRecibidoCliente - mesa.totalGastado;
-        }
-        
-        // Crear venta (localStorage por ahora)
-        const venta = {
-            id: generarId('VENTA'),
-            idCaja: cajaActual.id,
-            numeroMesa: numeroMesa,
-            fecha: obtenerFechaActualDDMMYYYY(),
-            hora: obtenerHoraActual(),
-            total: mesa.totalGastado,
-            metodoPago: metodoPago,
-            montoRecibido: montoRecibidoCliente,
-            vuelto: vueltoEntregado,
-            mesero: mesa.mesero,
-            productos: productosVenta,
-            comprobante: datosComprobante
-        };
-        
-        const ventas = obtenerDatos('ventas') || [];
-        ventas.push(venta);
-        guardarDatos('ventas', ventas);
-        
-        if (typeof registrarVentaEnCaja === 'function') {
-            registrarVentaEnCaja(numeroMesa, mesa.totalGastado, metodoPago);
-        }
-        
-        if (venta.productos && venta.productos.length > 0) {
-            if (typeof descontarInsumosDeVenta === 'function') {
-                descontarInsumosDeVenta(venta.productos);
-                console.log('📦 Insumos descontados automáticamente');
-            }
-        }
-        
-        try {
-            // 🔥 MARCAR PEDIDOS COMO COBRADOS (no eliminar)
-            await fetch(`${API_PEDIDOS}/mesa/${numeroMesa}/cobrar`, {
-                method: 'PUT'
-            });
-            console.log(`✅ Pedidos de Mesa ${numeroMesa} marcados como COBRADOS`);
-            
-            // 🔥 LIBERAR MESA EN API
-            const response = await fetch(`${API_URL}/${mesa.id}/liberar`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Error al liberar mesa en API');
+            } catch (e) {
+                console.error('Error marcando pedidos:', e);
             }
             
+            // 🔥 3. LIBERAR LA MESA
+            await fetch(`${API_URL}/mesas/${numeroMesa}/liberar`, { method: 'PUT' });
+            
+            cerrarModal();
             await cargarMesas();
             renderizarMesas();
-            cerrarModal();
             
-            let mensaje = `✅ Mesa ${numeroMesa} cobrada: ${formatearMoneda(venta.total)}`;
-            
-            if (metodoPago === 'Efectivo' && vueltoEntregado > 0) {
-                mensaje += `\n💵 Recibido: ${formatearMoneda(montoRecibidoCliente)}`;
-                mensaje += `\n🔄 Vuelto: ${formatearMoneda(vueltoEntregado)}`;
+            let mensaje = `✅ Mesa ${numeroMesa} cobrada: S/. ${total.toFixed(2)} (${metodoPago})`;
+            if (metodoPago === 'Efectivo' && vuelto > 0) {
+                mensaje += `\n💰 Vuelto: S/. ${vuelto.toFixed(2)}`;
             }
-            
-            if (datosComprobante) {
-                mensaje += `\n📄 ${datosComprobante.tipo === 'boleta' ? 'Boleta' : 'Factura'}: ${datosComprobante.completo}`;
-            }
-            
             mostrarNotificacion(mensaje, 'exito');
-            console.log(`💵 Venta registrada: ${venta.id} - ${formatearMoneda(venta.total)} (API)`);
+            
+            console.log(`💵 Cobro completado: Mesa ${numeroMesa} - S/. ${total.toFixed(2)}`);
             
         } catch (error) {
-            console.error('❌ Error al cobrar:', error);
-            mostrarNotificacion('Error al procesar el cobro', 'error');
+            console.error('❌ Error en cobro:', error);
+            mostrarNotificacion(error.message || 'Error al procesar cobro', 'error');
         }
     }
     
-    // ==========================================
-    // FUNCIONES DE UTILIDAD
-    // ==========================================
-    
-    function obtenerMesa(numeroMesa) {
-        return mesasData.find(m => m.numero === numeroMesa) || null;
+    function mostrarCamposEfectivo() {
+        const metodo = document.getElementById('metodo-pago-cobro').value;
+        const campos = document.getElementById('campos-efectivo');
+        if (campos) {
+            campos.style.display = metodo === 'Efectivo' ? 'block' : 'none';
+        }
     }
     
-    function obtenerEstadisticasMesas() {
-        const total = mesasData.length;
-        const ocupadas = mesasData.filter(m => m.estado === 'ocupada').length;
-        const disponibles = mesasData.filter(m => m.estado === 'disponible').length;
-        const reservadas = mesasData.filter(m => m.estado === 'reservada').length;
+    function calcularVuelto(total) {
+        const montoRecibido = parseFloat(document.getElementById('monto-recibido').value) || 0;
+        const vuelto = Math.max(0, montoRecibido - total);
+        document.getElementById('vuelto-cobro').value = `S/. ${vuelto.toFixed(2)}`;
+    }
+    
+    // ==========================================
+    // LIBERAR MESA
+    // ==========================================
+    
+    async function liberarMesa(numeroMesa) {
+        if (!confirm(`¿Liberar Mesa ${numeroMesa}? Se perderá la información.`)) return;
         
-        return {
-            total,
-            ocupadas,
-            disponibles,
-            reservadas,
-            porcentajeOcupacion: total > 0 ? Math.round((ocupadas / total) * 100) : 0
-        };
+        try {
+            await fetch(`${API_URL}/mesas/${numeroMesa}/liberar`, { method: 'PUT' });
+            cerrarModal();
+            await cargarMesas();
+            renderizarMesas();
+            mostrarNotificacion(`Mesa ${numeroMesa} liberada`, 'exito');
+        } catch (error) {
+            console.error('❌ Error:', error);
+            actualizarMesaLocal(numeroMesa, {
+                estadoMesa: 'disponible', cantidadPersonas: 0,
+                mesero: null, horaInicio: null, totalConsumoMesa: 0
+            });
+            cerrarModal();
+            renderizarMesas();
+            mostrarNotificacion(`Mesa ${numeroMesa} liberada`, 'exito');
+        }
+    }
+    
+    function actualizarMesaLocal(numeroMesa, datos) {
+        const mesa = mesasData.find(m => (m.numeroMesa || m.numero) === numeroMesa);
+        if (mesa) Object.assign(mesa, datos);
     }
     
     // ==========================================
-    // EXPORTAR FUNCIONES GLOBALES
+    // EXPORTAR
     // ==========================================
     
-    window.abrirDetallesMesa = abrirDetallesMesa;
-    window.ocuparMesaModal = ocuparMesaModal;
-    window.cobrarMesaModal = cobrarMesaModal;
+    window.verDetalleMesa = verDetalleMesa;
+    window.cobrarMesa = cobrarMesa;
+    window.confirmarCobro = confirmarCobro;
     window.liberarMesa = liberarMesa;
+    window.nuevoPedidoMesa = nuevoPedidoMesa;
+    window.mostrarCamposEfectivo = mostrarCamposEfectivo;
+    window.calcularVuelto = calcularVuelto;
     
-    window.agregarMesa = agregarMesa;
-    window.actualizarTotalMesa = actualizarTotalMesa;
-    window.obtenerMesa = obtenerMesa;
-    window.obtenerEstadisticasMesas = obtenerEstadisticasMesas;
+    window.Mesas = { inicializar, cargarMesas, renderizarMesas };
     
-    window.Mesas = {
-        inicializar: inicializar,
-        renderizar: renderizarMesas,
-        cargar: cargarMesas
-    };
-    
-    console.log('✅ Módulo Mesas cargado (API REST 🔥)');
+    console.log('✅ Módulo Mesas cargado - API REST');
 })();
 
-// ==========================================
-// ESTILOS PARA VUELTO
-// ==========================================
-
 const estilosMesas = document.createElement('style');
-estilosMesas.textContent = `
-    .detalle-mesa { padding: 10px; }
-    .info-mesa-ocupada { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
-    .info-mesa-ocupada p { margin: 8px 0; }
-    .formulario-ocupar { margin: 15px 0; }
-    .formulario-cobro { margin: 15px 0; }
-    .campo-form { margin-bottom: 15px; }
-    .campo-form label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--texto-secundario); }
-    .campo-form input, .campo-form select { width: 100%; }
-    .select-grande { padding: 12px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; }
-    .select-grande:focus { border-color: var(--color-primario); outline: none; }
-    .seccion-vuelto { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); padding: 20px; border-radius: 12px; margin: 15px 0; border: 2px solid #81c784; }
-    .input-moneda { position: relative; display: flex; align-items: center; }
-    .prefijo-moneda { position: absolute; left: 15px; font-weight: bold; color: #2e7d32; font-size: 18px; }
-    .input-monto-grande { width: 100%; padding: 15px 15px 15px 50px !important; font-size: 24px !important; font-weight: bold; text-align: right; border: 2px solid #81c784 !important; border-radius: 8px; }
-    .input-monto-grande:focus { border-color: #2e7d32 !important; outline: none; }
-    .botones-monto-rapido { display: flex; gap: 8px; flex-wrap: wrap; margin: 15px 0; }
-    .btn-monto { flex: 1; min-width: 70px; padding: 10px; border: 2px solid #81c784; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
-    .btn-monto:hover { background: #81c784; color: white; }
-    .btn-monto-exacto { background: #2e7d32; color: white; border-color: #2e7d32; }
-    .btn-monto-exacto:hover { background: #1b5e20; }
-    .resultado-vuelto { background: white; padding: 20px; border-radius: 12px; text-align: center; margin-top: 15px; border: 3px solid #e0e0e0; transition: all 0.3s ease; }
-    .resultado-vuelto.vuelto-positivo { border-color: #4caf50; background: #e8f5e9; }
-    .resultado-vuelto.vuelto-negativo { border-color: #f44336; background: #ffebee; }
-    .vuelto-label { font-size: 14px; color: #666; margin-bottom: 5px; font-weight: 600; }
-    .vuelto-monto { font-size: 36px; font-weight: bold; color: #2e7d32; }
-    .resultado-vuelto.vuelto-negativo .vuelto-monto { color: #f44336; }
-    .error-monto { display: flex; align-items: center; gap: 10px; padding: 12px; background: #ffebee; border-radius: 8px; color: #c62828; margin-top: 10px; font-weight: 500; }
-    .error-monto i { font-size: 20px; }
-    .mensaje-pago-digital { display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); padding: 25px; border-radius: 12px; text-align: center; border: 2px solid #7c4dff; margin: 15px 0; }
-    .mensaje-pago-digital i { font-size: 40px; color: #7c4dff; margin-bottom: 10px; }
-    .mensaje-pago-digital p { font-size: 18px; margin: 5px 0; color: #333; }
-    .mensaje-pago-digital small { color: #666; }
-    .mesero-autoasignado { display: flex; align-items: center; gap: 10px; padding: 15px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 2px solid #4caf50; }
-    .mesero-autoasignado i { font-size: 24px; color: #2e7d32; }
-    .mesero-autoasignado span { font-size: 18px; color: #1b5e20; }
-    .mesero-autoasignado small { color: #666; font-style: italic; }
-`;
+estilosMesas.textContent = `.grid-mesas{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px;margin-top:20px}.tarjeta-mesa{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);cursor:pointer;transition:all .3s;border:3px solid transparent}.tarjeta-mesa:hover{transform:translateY(-5px);box-shadow:0 4px 15px rgba(0,0,0,.15)}.mesa-disponible{border-color:#27ae60}.mesa-ocupada{border-color:#e74c3c;background:#fff5f5}.mesa-reservada{border-color:#f39c12}.mesa-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}.mesa-header i{font-size:20px;color:var(--color-primario)}.numero-mesa{font-size:18px;font-weight:bold}.mesa-estado{margin:10px 0}.badge-estado{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:bold}.badge-disponible{background:#d4edda;color:#155724}.badge-ocupada{background:#f8d7da;color:#721c24}.badge-reservada{background:#fff3cd;color:#856404}.mesa-info{margin-top:15px}.mesa-info p{margin:5px 0;font-size:14px;color:#666}.mesa-total{font-size:18px!important;font-weight:bold;color:var(--color-primario)!important}.detalle-mesa{padding:10px}.mesa-resumen{display:flex;justify-content:space-around;margin-bottom:20px;padding:15px;background:#f8f9fa;border-radius:10px}.info-item{display:flex;flex-direction:column;align-items:center;gap:5px}.info-item i{font-size:20px;color:var(--color-primario)}.info-item.total span{font-size:24px;font-weight:bold;color:var(--color-exito)}.lista-pedidos{max-height:200px;overflow-y:auto}.pedido-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:5px 0;background:#f8f9fa;border-radius:8px}.formulario-cobro{padding:10px}.select-grande{font-size:16px;padding:12px}`;
 document.head.appendChild(estilosMesas);
-
-console.log('✅ Módulo Mesas listo (API REST + Cobrar sin DELETE 🔥)');

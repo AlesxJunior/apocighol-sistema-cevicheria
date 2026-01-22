@@ -422,10 +422,12 @@ DELETE FROM pedido_productos;
 select * from usuarios;
 
 
+
 DELETE FROM pedidos;
 
 DELETE FROM pedido_productos WHERE id_detalle > 0;
 DELETE FROM pedidos WHERE id_pedido > 0;
+
 
 
 UPDATE mesas SET estado_mesa = 'disponible', total_consumo_mesa = 0, mesero_asignado = NULL, personas_actuales = 0, hora_ocupacion_mesa = NULL WHERE numero_mesa = 2;

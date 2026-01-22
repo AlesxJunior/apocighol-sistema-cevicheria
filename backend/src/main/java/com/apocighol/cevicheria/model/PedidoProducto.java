@@ -12,6 +12,8 @@ import java.math.BigDecimal;
  * PEDIDO_PRODUCTO.JAVA - ENTIDAD JPA
  * Tabla: pedido_productos
  * Detalle de productos por pedido
+ * 
+ * 🔥 ACTUALIZADO: Campo categoriaProducto agregado
  * ==========================================
  */
 @Data
@@ -33,6 +35,12 @@ public class PedidoProducto {
 
     @Column(name = "nombre_producto", nullable = false, length = 200)
     private String nombreProducto;
+
+    // ==========================================
+    // 🔥 NUEVO: Campo para categoría del producto
+    // ==========================================
+    @Column(name = "categoria_producto", length = 100)
+    private String categoriaProducto;
 
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad = 1;
