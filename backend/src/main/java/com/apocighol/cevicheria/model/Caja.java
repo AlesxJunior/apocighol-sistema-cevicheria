@@ -62,7 +62,7 @@ public class Caja {
     @Column(name = "total_tarjeta", precision = 10, scale = 2)
     private BigDecimal totalTarjeta = BigDecimal.ZERO;
     
-    @Column(name = "total_egresos", precision = 10, scale = 2)
+    @Column(name = "total_gastos", precision = 10, scale = 2)
     private BigDecimal totalEgresos = BigDecimal.ZERO;
     
     @Column(name = "diferencia", precision = 10, scale = 2)
@@ -71,7 +71,7 @@ public class Caja {
     @Column(name = "estado_caja", length = 20)
     private String estadoCaja = "ABIERTA"; // ABIERTA, CERRADA
     
-    @Column(name = "responsable", length = 100)
+    @Column(name = "responsable_caja", length = 100)
     private String responsable;
     
     @Column(name = "observaciones", columnDefinition = "TEXT")

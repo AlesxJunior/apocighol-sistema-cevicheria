@@ -14,8 +14,9 @@ import java.util.Optional;
 
 /**
  * ==========================================
- * PRODUCTO SERVICE
+ * PRODUCTO SERVICE - CORREGIDO
  * 🔥 Generación automática de código PROD-XXX
+ * 🔥 Compatible con el Repository corregido
  * ==========================================
  */
 @Service
@@ -35,8 +36,8 @@ public class ProductoService {
      */
     public String generarSiguienteCodigo() {
         try {
-            // Intentar obtener el máximo número con query nativa
-            Integer maxNumero = productoRepository.obtenerMaximoNumeroCodigoNativo();
+            // 🔥 CORREGIDO: Usar el método JPQL en lugar del nativo
+            Integer maxNumero = productoRepository.obtenerMaximoNumeroCodigo();
             
             if (maxNumero == null) {
                 maxNumero = 0;
@@ -55,6 +56,8 @@ public class ProductoService {
             return codigo;
             
         } catch (Exception e) {
+            System.out.println("⚠️ Error en generación de código, usando fallback: " + e.getMessage());
+            
             // Fallback: contar productos y agregar 1
             long count = productoRepository.contarProductos();
             String codigo = String.format("PROD-%03d", count + 1);

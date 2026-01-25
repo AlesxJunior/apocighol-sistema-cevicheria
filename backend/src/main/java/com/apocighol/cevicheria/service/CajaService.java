@@ -172,6 +172,36 @@ public class CajaService {
         return movimientoGuardado;
     }
 
+    /**
+     * Registra un gasto en la caja actual
+     */
+    public MovimientoCaja registrarGasto(String concepto, BigDecimal monto, String registradoPor) {
+        Caja caja = obtenerCajaAbierta();
+        if (caja == null) {
+            throw new RuntimeException("No hay caja abierta para registrar el gasto");
+        }
+
+        MovimientoCaja movimiento = new MovimientoCaja();
+        movimiento.setIdCaja(caja.getIdCaja());
+        movimiento.setTipoMovimiento("GASTO");
+        movimiento.setDescripcion(concepto);
+        movimiento.setMonto(monto);
+        movimiento.setMetodoPago("Efectivo");
+        movimiento.setFechaMovimiento(LocalDate.now());
+        movimiento.setHoraMovimiento(LocalTime.now());
+        movimiento.setRegistradoPor(registradoPor);
+
+        MovimientoCaja movimientoGuardado = movimientoCajaRepository.save(movimiento);
+
+        // Actualizar total de gastos
+        caja.setTotalEgresos(caja.getTotalEgresos().add(monto));
+        cajaRepository.save(caja);
+
+        System.out.println("💸 Gasto registrado: " + concepto + " | S/. " + monto);
+        
+        return movimientoGuardado;
+    }
+
     // ==========================================
     // CERRAR CAJA
     // ==========================================
@@ -244,6 +274,21 @@ public class CajaService {
      */
     public List<Caja> cajasDelDia() {
         return cajaRepository.findByFechaApertura(LocalDate.now());
+    }
+
+    /**
+     * Lista todas las cajas cerradas
+     */
+    public List<Caja> listarCajasCerradas() {
+        return cajaRepository.findAllByEstadoCajaOrderByFechaAperturaDesc("CERRADA");
+    }
+
+    /**
+     * Obtiene una caja por su ID
+     */
+    public Caja obtenerCajaPorId(Long id) {
+        return cajaRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Caja no encontrada con ID: " + id));
     }
 
     // ==========================================

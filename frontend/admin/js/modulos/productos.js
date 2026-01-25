@@ -1,6 +1,6 @@
 /* ==========================================
    PRODUCTOS.JS - CONECTADO CON BACKEND
-   🔥 CÓDIGO AUTOMÁTICO DESDE API
+   🔥 CÓDIGO AUTOMÁTICO DESDE API - CORREGIDO
    ========================================== */
 
 (function() {
@@ -182,51 +182,60 @@
             
             if (response.ok) {
                 productosData = await response.json();
-                categoriaActual = 'Todos';
-                renderizarCategorias();
                 renderizarProductos();
             }
         } catch (error) {
-            console.error('❌ Error en búsqueda:', error);
+            console.error('❌ Error:', error);
         }
     }
     
     // ==========================================
-    // 🔥 CRUD PRODUCTOS CON API
+    // 🔥 NUEVO PRODUCTO - CON CÓDIGO AUTOMÁTICO
     // ==========================================
     
     async function nuevoProducto() {
-        // 🔥 Obtener siguiente código automático del backend
+        // 🔥 OBTENER CÓDIGO AUTOMÁTICO
         const siguienteCodigo = await obtenerSiguienteCodigo();
         
         let contenido = `
             <div class="formulario-producto">
+                <!-- 🔥 CÓDIGO AUTOMÁTICO - READONLY -->
                 <div class="campo-form">
                     <label>Código del Producto:</label>
-                    <input type="text" id="codigo-producto" value="${siguienteCodigo}" readonly 
-                           style="background: #f0f0f0; cursor: not-allowed;">
-                    <small style="color: #27ae60;">✓ Código generado automáticamente</small>
+                    <input type="text" id="codigo-producto" 
+                           value="${siguienteCodigo}" 
+                           readonly 
+                           style="background: #f0f0f0; cursor: not-allowed; color: #555;">
+                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">
+                        <i class="fas fa-info-circle"></i> 
+                        Se genera automáticamente de forma secuencial
+                    </small>
                 </div>
                 
                 <div class="campo-form">
                     <label>Nombre del Producto: *</label>
-                    <input type="text" id="nombre-producto" placeholder="Ej: Ceviche Mixto">
+                    <input type="text" id="nombre-producto" 
+                           placeholder="Ej: Ceviche Mixto" 
+                           autofocus>
                 </div>
                 
                 <div class="campo-form">
                     <label>Descripción:</label>
-                    <textarea id="descripcion-producto" placeholder="Ej: Ceviche con pescado, calamares y pulpo"></textarea>
+                    <textarea id="descripcion-producto" 
+                              placeholder="Ej: Ceviche con pescado, calamares y camarones"></textarea>
                 </div>
                 
                 <div class="campo-form">
                     <label>Precio (S/.): *</label>
-                    <input type="number" id="precio-producto" min="0" step="0.01" placeholder="0.00">
+                    <input type="number" id="precio-producto" 
+                           min="0" step="0.01" 
+                           placeholder="0.00">
                 </div>
                 
                 <div class="campo-form">
                     <label>Categoría: *</label>
                     <select id="categoria-producto">
-                        <option value="">Selecciona una categoría</option>
+                        <option value="">-- Selecciona una categoría --</option>
                         ${CATEGORIAS.filter(c => c !== 'Todos').map(cat => 
                             `<option value="${cat}">${cat}</option>`
                         ).join('')}
@@ -240,7 +249,7 @@
         const btnConfirmar = document.getElementById('modal-btn-confirmar');
         if (btnConfirmar) {
             btnConfirmar.style.display = 'inline-flex';
-            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Guardar';
+            btnConfirmar.innerHTML = '<i class="fas fa-check"></i> Crear Producto';
         }
     }
     
@@ -250,13 +259,14 @@
         const precio = parseFloat(document.getElementById('precio-producto').value);
         const categoria = document.getElementById('categoria-producto').value;
         
+        // Validaciones
         if (!nombre) {
-            mostrarNotificacion('Ingresa el nombre del producto', 'error');
+            mostrarNotificacion('El nombre del producto es obligatorio', 'error');
             return;
         }
         
         if (!precio || precio < 0) {
-            mostrarNotificacion('Ingresa un precio válido', 'error');
+            mostrarNotificacion('El precio debe ser mayor o igual a 0', 'error');
             return;
         }
         
@@ -270,6 +280,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    // 🔥 NO ENVIAR CÓDIGO - El backend lo genera automáticamente
                     nombreProducto: nombre,
                     descripcionProducto: descripcion,
                     precioProducto: precio,
@@ -283,7 +294,10 @@
                 cerrarModal();
                 await cargarProductos();
                 renderizarProductos();
-                mostrarNotificacion(`Producto "${productoCreado.codigoProducto}" creado`, 'exito');
+                mostrarNotificacion(
+                    `Producto "${productoCreado.codigoProducto}" creado exitosamente`, 
+                    'exito'
+                );
                 console.log('✅ Producto creado:', productoCreado.codigoProducto);
             } else {
                 const error = await response.json();
@@ -291,7 +305,7 @@
             }
         } catch (error) {
             console.error('❌ Error:', error);
-            mostrarNotificacion('Error de conexión', 'error');
+            mostrarNotificacion('Error de conexión con el servidor', 'error');
         }
     }
     
@@ -448,7 +462,7 @@
         renderizarProductos: renderizarProductos
     };
     
-    console.log('✅ Módulo Productos cargado - Modo API REST');
+    console.log('✅ Módulo Productos cargado - Modo API REST con código automático');
 })();
 
 // ==========================================

@@ -9,10 +9,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-/**
- * Entidad MovimientoCaja - Movimientos de caja (ventas, egresos)
- * Tabla: movimientos_caja
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -30,16 +26,16 @@ public class MovimientoCaja {
     private Long idCaja;
     
     @Column(name = "tipo_movimiento", length = 20)
-    private String tipoMovimiento; // VENTA, EGRESO, INGRESO
+    private String tipoMovimiento;
     
-    @Column(name = "descripcion", length = 200)
+    @Column(name = "concepto", length = 200)
     private String descripcion;
     
     @Column(name = "monto", precision = 10, scale = 2)
     private BigDecimal monto = BigDecimal.ZERO;
     
     @Column(name = "metodo_pago", length = 30)
-    private String metodoPago; // Efectivo, Yape, Plin, Tarjeta
+    private String metodoPago;
     
     @Column(name = "monto_recibido", precision = 10, scale = 2)
     private BigDecimal montoRecibido = BigDecimal.ZERO;
@@ -55,10 +51,6 @@ public class MovimientoCaja {
     
     @Column(name = "registrado_por", length = 100)
     private String registradoPor;
-    
-    // ==========================================
-    // MÉTODOS
-    // ==========================================
     
     @PrePersist
     protected void onCreate() {

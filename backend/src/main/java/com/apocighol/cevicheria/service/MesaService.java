@@ -4,7 +4,6 @@ import com.apocighol.cevicheria.model.Mesa;
 import com.apocighol.cevicheria.repository.MesaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -13,169 +12,134 @@ import java.util.Optional;
 /**
  * ==========================================
  * MESA SERVICE - LÓGICA DE NEGOCIO
- * VERSIÓN DEFINITIVA
+ * VERSIÓN SIN VALIDACIÓN DE CAPACIDAD
  * ==========================================
  */
 @Service
-@Transactional
 public class MesaService {
 
     @Autowired
     private MesaRepository mesaRepository;
 
     // ==========================================
-    // CRUD BÁSICO
+    // LISTAR TODAS LAS MESAS
     // ==========================================
-
-    public List<Mesa> obtenerTodas() {
-        return mesaRepository.findAllActivasOrdenadas();
+    public List<Mesa> listarMesas() {
+        return mesaRepository.findAll();
     }
 
-    public Optional<Mesa> obtenerPorId(Long id) {
+    // ==========================================
+    // BUSCAR MESA POR ID
+    // ==========================================
+    public Optional<Mesa> buscarPorId(Long id) {
         return mesaRepository.findById(id);
     }
 
-    public Optional<Mesa> obtenerPorNumero(Integer numero) {
-        return mesaRepository.findByNumeroMesa(numero);
+    // ==========================================
+    // BUSCAR MESA POR NÚMERO
+    // ==========================================
+    public Optional<Mesa> buscarPorNumero(Integer numeroMesa) {
+        return mesaRepository.findByNumeroMesa(numeroMesa);
     }
 
-    public Mesa crear(Mesa mesa) {
-        if (mesaRepository.existsByNumeroMesa(mesa.getNumeroMesa())) {
-            throw new RuntimeException("Ya existe una mesa con el número " + mesa.getNumeroMesa());
+    // ==========================================
+    // CREAR NUEVA MESA
+    // ==========================================
+    public Mesa crearMesa(Mesa mesa) {
+        // Validar que no exista el número de mesa
+        Optional<Mesa> mesaExistente = mesaRepository.findByNumeroMesa(mesa.getNumeroMesa());
+        if (mesaExistente.isPresent()) {
+            throw new IllegalArgumentException("Ya existe una mesa con el número " + mesa.getNumeroMesa());
         }
-        if (mesa.getEstadoMesa() == null) mesa.setEstadoMesa("disponible");
-        if (mesa.getActivaMesa() == null) mesa.setActivaMesa(true);
-        if (mesa.getTotalConsumoMesa() == null) mesa.setTotalConsumoMesa(BigDecimal.ZERO);
-        if (mesa.getCapacidadMesa() == null) mesa.setCapacidadMesa(4);
-        if (mesa.getPersonasActuales() == null) mesa.setPersonasActuales(0);
+        
+        // Valores por defecto
+        if (mesa.getEstadoMesa() == null) {
+            mesa.setEstadoMesa("disponible");
+        }
+        if (mesa.getCapacidadMesa() == null) {
+            mesa.setCapacidadMesa(4);
+        }
         
         return mesaRepository.save(mesa);
     }
 
-    public Mesa actualizar(Long id, Mesa mesaActualizada) {
-        return mesaRepository.findById(id)
-            .map(mesa -> {
-                if (mesaActualizada.getNumeroMesa() != null) {
-                    if (!mesa.getNumeroMesa().equals(mesaActualizada.getNumeroMesa()) 
-                        && mesaRepository.existsByNumeroMesa(mesaActualizada.getNumeroMesa())) {
-                        throw new RuntimeException("Ya existe una mesa con el número " + mesaActualizada.getNumeroMesa());
-                    }
-                    mesa.setNumeroMesa(mesaActualizada.getNumeroMesa());
-                }
-                if (mesaActualizada.getCapacidadMesa() != null) {
-                    mesa.setCapacidadMesa(mesaActualizada.getCapacidadMesa());
-                }
-                if (mesaActualizada.getEstadoMesa() != null) {
-                    mesa.setEstadoMesa(mesaActualizada.getEstadoMesa());
-                }
-                if (mesaActualizada.getMeseroAsignado() != null) {
-                    mesa.setMeseroAsignado(mesaActualizada.getMeseroAsignado());
-                }
-                if (mesaActualizada.getPersonasActuales() != null) {
-                    mesa.setPersonasActuales(mesaActualizada.getPersonasActuales());
-                }
-                if (mesaActualizada.getTotalConsumoMesa() != null) {
-                    mesa.setTotalConsumoMesa(mesaActualizada.getTotalConsumoMesa());
-                }
-                return mesaRepository.save(mesa);
-            })
-            .orElse(null);
-    }
+    // ==========================================
+    // OCUPAR MESA - SIN VALIDACIÓN DE CAPACIDAD
+    // ==========================================
+    public Mesa ocuparMesa(Integer numeroMesa, Integer personas, String mesero) {
+        Mesa mesa = mesaRepository.findByNumeroMesa(numeroMesa)
+                .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
 
-    public void eliminar(Long id) {
-        mesaRepository.findById(id).ifPresent(mesa -> {
-            mesa.setActivaMesa(false);
-            mesaRepository.save(mesa);
-        });
+        if (!"disponible".equalsIgnoreCase(mesa.getEstadoMesa())) {
+            throw new IllegalStateException("La mesa no está disponible");
+        }
+
+        // 🔥 SIN VALIDACIÓN DE CAPACIDAD
+        // El negocio puede juntar mesas si necesitan más espacio
+        
+        // Ocupar la mesa
+        mesa.ocupar(personas, mesero);
+        return mesaRepository.save(mesa);
     }
 
     // ==========================================
-    // OPERACIONES DE ESTADO
+    // LIBERAR MESA
     // ==========================================
+    public Mesa liberarMesa(Long id, String motivo) {
+        Mesa mesa = mesaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
 
-    public Mesa ocuparMesa(Long id, Integer personas, String mesero) {
-        return mesaRepository.findById(id)
-            .map(mesa -> {
-                if (!mesa.estaDisponible()) {
-                    throw new RuntimeException("La mesa " + mesa.getNumeroMesa() + " no está disponible");
-                }
-                if (personas > mesa.getCapacidadMesa()) {
-                    throw new RuntimeException("La mesa " + mesa.getNumeroMesa() + " tiene capacidad para " + mesa.getCapacidadMesa() + " personas");
-                }
-                mesa.ocupar(personas, mesero);
-                return mesaRepository.save(mesa);
-            })
-            .orElseThrow(() -> new RuntimeException("Mesa no encontrada"));
-    }
-
-    public Mesa liberarMesa(Long id) {
-        return mesaRepository.findById(id)
-            .map(mesa -> {
-                mesa.liberar();
-                return mesaRepository.save(mesa);
-            })
-            .orElseThrow(() -> new RuntimeException("Mesa no encontrada"));
-    }
-
-    public Mesa reservarMesa(Long id) {
-        return mesaRepository.findById(id)
-            .map(mesa -> {
-                if (!mesa.estaDisponible()) {
-                    throw new RuntimeException("La mesa " + mesa.getNumeroMesa() + " no está disponible para reservar");
-                }
-                mesa.setEstadoMesa("reservada");
-                return mesaRepository.save(mesa);
-            })
-            .orElseThrow(() -> new RuntimeException("Mesa no encontrada"));
-    }
-
-    public Mesa actualizarTotal(Long id, BigDecimal total) {
-        return mesaRepository.findById(id)
-            .map(mesa -> {
-                mesa.setTotalConsumoMesa(total);
-                return mesaRepository.save(mesa);
-            })
-            .orElseThrow(() -> new RuntimeException("Mesa no encontrada"));
+        mesa.liberar();
+        if (motivo != null && !motivo.trim().isEmpty()) {
+            mesa.setMotivoLiberacion(motivo);
+        }
+        
+        return mesaRepository.save(mesa);
     }
 
     // ==========================================
-    // CONSULTAS
+    // ACTUALIZAR TOTAL CONSUMO
     // ==========================================
+    public Mesa actualizarTotal(Integer numeroMesa, BigDecimal nuevoTotal) {
+        Mesa mesa = mesaRepository.findByNumeroMesa(numeroMesa)
+                .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
 
-    public List<Mesa> obtenerDisponibles() {
+        mesa.setTotalConsumoMesa(nuevoTotal);
+        return mesaRepository.save(mesa);
+    }
+
+    // ==========================================
+    // ELIMINAR MESA
+    // ==========================================
+    public void eliminarMesa(Long id) {
+        Mesa mesa = mesaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
+
+        if ("ocupada".equalsIgnoreCase(mesa.getEstadoMesa())) {
+            throw new IllegalStateException("No se puede eliminar una mesa ocupada");
+        }
+
+        mesaRepository.delete(mesa);
+    }
+
+    // ==========================================
+    // LISTAR MESAS DISPONIBLES
+    // ==========================================
+    public List<Mesa> listarMesasDisponibles() {
         return mesaRepository.findMesasDisponibles();
     }
 
-    public List<Mesa> obtenerOcupadas() {
+    // ==========================================
+    // LISTAR MESAS OCUPADAS
+    // ==========================================
+    public List<Mesa> listarMesasOcupadas() {
         return mesaRepository.findMesasOcupadas();
     }
 
-    public List<Mesa> obtenerPorEstado(String estado) {
-        return mesaRepository.findByEstadoMesaAndActivaMesaTrue(estado);
-    }
-
-    public List<Mesa> obtenerPorMesero(String mesero) {
-        return mesaRepository.findByMeseroAsignado(mesero);
-    }
-
     // ==========================================
-    // ESTADÍSTICAS
+    // CONTAR MESAS POR ESTADO
     // ==========================================
-
     public long contarPorEstado(String estado) {
         return mesaRepository.countByEstadoMesa(estado);
-    }
-
-    public long contarTotal() {
-        return mesaRepository.countActivas();
-    }
-
-    public long[] obtenerResumen() {
-        return new long[] {
-            contarPorEstado("disponible"),
-            contarPorEstado("ocupada"),
-            contarPorEstado("reservada"),
-            contarTotal()
-        };
     }
 }

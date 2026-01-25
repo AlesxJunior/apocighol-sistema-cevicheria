@@ -1,219 +1,213 @@
 package com.apocighol.cevicheria.controller;
 
 import com.apocighol.cevicheria.model.Mesa;
+import com.apocighol.cevicheria.repository.PedidoRepository;
 import com.apocighol.cevicheria.service.MesaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 /**
  * ==========================================
  * MESA CONTROLLER - API REST
- * VERSIÓN DEFINITIVA
- * Base URL: /api/mesas
+ * VERSIÓN SIN VALIDACIÓN DE CAPACIDAD
  * ==========================================
  */
 @RestController
 @RequestMapping("/api/mesas")
+@CrossOrigin(origins = "*")
 public class MesaController {
 
     @Autowired
     private MesaService mesaService;
 
-    // ==========================================
-    // CRUD BÁSICO
-    // ==========================================
+    @Autowired
+    private PedidoRepository pedidoRepository;
 
-    // GET /api/mesas - Obtener todas
+    // ==========================================
+    // LISTAR TODAS LAS MESAS
+    // ==========================================
     @GetMapping
-    public List<Mesa> obtenerTodas() {
-        return mesaService.obtenerTodas();
+    public ResponseEntity<List<Mesa>> listarMesas() {
+        List<Mesa> mesas = mesaService.listarMesas();
+        return ResponseEntity.ok(mesas);
     }
 
-    // GET /api/mesas/{id} - Obtener por ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Mesa> obtenerPorId(@PathVariable Long id) {
-        return mesaService.obtenerPorId(id)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+    // ==========================================
+    // BUSCAR MESA POR NÚMERO
+    // ==========================================
+    @GetMapping("/{numero}")
+    public ResponseEntity<?> buscarMesa(@PathVariable Integer numero) {
+        return mesaService.buscarPorNumero(numero)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // GET /api/mesas/numero/{numero} - Obtener por número
-    @GetMapping("/numero/{numero}")
-    public ResponseEntity<Mesa> obtenerPorNumero(@PathVariable Integer numero) {
-        return mesaService.obtenerPorNumero(numero)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
-    }
-
-    // POST /api/mesas - Crear mesa
+    // ==========================================
+    // CREAR NUEVA MESA
+    // ==========================================
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Mesa mesa) {
+    public ResponseEntity<?> crearMesa(@RequestBody Mesa mesa) {
         try {
-            Mesa nuevaMesa = mesaService.crear(mesa);
+            Mesa nuevaMesa = mesaService.crearMesa(mesa);
             return ResponseEntity.ok(nuevaMesa);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
 
-    // PUT /api/mesas/{id} - Actualizar mesa
-    @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Mesa mesa) {
-        try {
-            Mesa actualizada = mesaService.actualizar(id, mesa);
-            if (actualizada != null) {
-                return ResponseEntity.ok(actualizada);
-            }
-            return ResponseEntity.notFound().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // DELETE /api/mesas/{id} - Eliminar mesa
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        mesaService.eliminar(id);
-        return ResponseEntity.ok().build();
-    }
-
     // ==========================================
-    // OPERACIONES DE ESTADO
+    // OCUPAR MESA - SIN VALIDACIÓN DE CAPACIDAD
     // ==========================================
-
-    // PUT /api/mesas/{id}/ocupar - Ocupar mesa
-    // Body: { "personas": 4, "mesero": "Juan" }
-    @PutMapping("/{id}/ocupar")
-    public ResponseEntity<?> ocuparMesa(@PathVariable Long id, @RequestBody Map<String, Object> datos) {
+    @PutMapping("/{numero}/ocupar")
+    public ResponseEntity<?> ocuparMesa(
+            @PathVariable Integer numero,
+            @RequestBody Map<String, Object> datos) {
         try {
-            Integer personas = 1;
-            Object personasObj = datos.get("personas");
-            if (personasObj instanceof Integer) {
-                personas = (Integer) personasObj;
-            } else if (personasObj instanceof String) {
-                personas = Integer.parseInt((String) personasObj);
-            } else if (personasObj instanceof Double) {
-                personas = ((Double) personasObj).intValue();
-            }
-            
+            Integer personas = (Integer) datos.get("personas");
             String mesero = (String) datos.get("mesero");
-            
+
+            if (personas == null || personas < 1) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Debe especificar la cantidad de personas");
+                return ResponseEntity.badRequest().body(error);
+            }
+
             if (mesero == null || mesero.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Debe especificar el mesero"));
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Debe especificar el mesero");
+                return ResponseEntity.badRequest().body(error);
             }
-            if (personas < 1) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Mínimo 1 persona"));
-            }
-            
-            Mesa mesa = mesaService.ocuparMesa(id, personas, mesero);
-            return ResponseEntity.ok(mesa);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
 
-    // PUT /api/mesas/{id}/liberar - Liberar mesa
-    @PutMapping("/{id}/liberar")
-    public ResponseEntity<?> liberarMesa(@PathVariable Long id) {
-        try {
-            Mesa mesa = mesaService.liberarMesa(id);
+            // 🔥 SIN VALIDACIÓN DE CAPACIDAD
+            // Permitir cualquier cantidad de personas
+            Mesa mesa = mesaService.ocuparMesa(numero, personas, mesero);
             return ResponseEntity.ok(mesa);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
 
-    // PUT /api/mesas/{id}/reservar - Reservar mesa
-    @PutMapping("/{id}/reservar")
-    public ResponseEntity<?> reservarMesa(@PathVariable Long id) {
-        try {
-            Mesa mesa = mesaService.reservarMesa(id);
-            return ResponseEntity.ok(mesa);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // PUT /api/mesas/{id}/total - Actualizar total
-    // Body: { "total": 150.50 }
-    @PutMapping("/{id}/total")
-    public ResponseEntity<?> actualizarTotal(@PathVariable Long id, @RequestBody Map<String, Object> datos) {
-        try {
-            Object totalObj = datos.get("total");
-            BigDecimal total;
-            
-            if (totalObj instanceof Integer) {
-                total = BigDecimal.valueOf((Integer) totalObj);
-            } else if (totalObj instanceof Double) {
-                total = BigDecimal.valueOf((Double) totalObj);
-            } else if (totalObj instanceof String) {
-                total = new BigDecimal((String) totalObj);
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "Total inválido"));
-            }
-            
-            Mesa mesa = mesaService.actualizarTotal(id, total);
-            return ResponseEntity.ok(mesa);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
 
     // ==========================================
-    // CONSULTAS FILTRADAS
+    // LIBERAR MESA
     // ==========================================
+    @PutMapping("/{numero}/liberar")
+    public ResponseEntity<?> liberarMesa(
+            @PathVariable Integer numero,
+            @RequestBody(required = false) Map<String, String> datos) {
+        try {
+            Mesa mesa = mesaService.buscarPorNumero(numero)
+                    .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
 
-    // GET /api/mesas/disponibles
+            String motivo = datos != null ? datos.get("motivo") : null;
+            Mesa mesaLiberada = mesaService.liberarMesa(mesa.getIdMesa(), motivo);
+            
+            return ResponseEntity.ok(mesaLiberada);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    // ==========================================
+    // VALIDAR SI PUEDE COBRAR (TODOS LOS PEDIDOS SERVIDOS)
+    // ==========================================
+    @GetMapping("/{numero}/puede-cobrar")
+    public ResponseEntity<?> puedeCobrar(@PathVariable Integer numero) {
+        // Contar pedidos que NO estén SERVIDOS ni COBRADOS
+        long pedidosNoServidos = pedidoRepository.countPedidosNoServidos(numero);
+        
+        boolean puedeCobrar = (pedidosNoServidos == 0);
+        
+        Map<String, Object> respuesta = new HashMap<>();
+        respuesta.put("puedeCobrar", puedeCobrar);
+        respuesta.put("pedidosNoServidos", pedidosNoServidos);
+        
+        if (puedeCobrar) {
+            respuesta.put("mensaje", "Puede cobrar la mesa");
+        } else {
+            respuesta.put("mensaje", "Hay " + pedidosNoServidos + " pedido(s) sin servir");
+        }
+        
+        return ResponseEntity.ok(respuesta);
+    }
+
+    // ==========================================
+    // ACTUALIZAR TOTAL CONSUMO
+    // ==========================================
+    @PutMapping("/{numero}/actualizar-total")
+    public ResponseEntity<?> actualizarTotal(
+            @PathVariable Integer numero,
+            @RequestBody Map<String, Object> datos) {
+        try {
+            Double totalDouble = ((Number) datos.get("total")).doubleValue();
+            BigDecimal nuevoTotal = BigDecimal.valueOf(totalDouble);
+
+            Mesa mesa = mesaService.actualizarTotal(numero, nuevoTotal);
+            return ResponseEntity.ok(mesa);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    // ==========================================
+    // ELIMINAR MESA
+    // ==========================================
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarMesa(@PathVariable Long id) {
+        try {
+            mesaService.eliminarMesa(id);
+            Map<String, String> respuesta = new HashMap<>();
+            respuesta.put("mensaje", "Mesa eliminada correctamente");
+            return ResponseEntity.ok(respuesta);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    // ==========================================
+    // LISTAR MESAS DISPONIBLES
+    // ==========================================
     @GetMapping("/disponibles")
-    public List<Mesa> obtenerDisponibles() {
-        return mesaService.obtenerDisponibles();
+    public ResponseEntity<List<Mesa>> listarMesasDisponibles() {
+        List<Mesa> mesas = mesaService.listarMesasDisponibles();
+        return ResponseEntity.ok(mesas);
     }
 
-    // GET /api/mesas/ocupadas
+    // ==========================================
+    // LISTAR MESAS OCUPADAS
+    // ==========================================
     @GetMapping("/ocupadas")
-    public List<Mesa> obtenerOcupadas() {
-        return mesaService.obtenerOcupadas();
-    }
-
-    // GET /api/mesas/estado/{estado}
-    @GetMapping("/estado/{estado}")
-    public List<Mesa> obtenerPorEstado(@PathVariable String estado) {
-        return mesaService.obtenerPorEstado(estado);
-    }
-
-    // GET /api/mesas/mesero/{mesero}
-    @GetMapping("/mesero/{mesero}")
-    public List<Mesa> obtenerPorMesero(@PathVariable String mesero) {
-        return mesaService.obtenerPorMesero(mesero);
+    public ResponseEntity<List<Mesa>> listarMesasOcupadas() {
+        List<Mesa> mesas = mesaService.listarMesasOcupadas();
+        return ResponseEntity.ok(mesas);
     }
 
     // ==========================================
-    // ESTADÍSTICAS
+    // ESTADÍSTICAS DE MESAS
     // ==========================================
-
-    // GET /api/mesas/resumen
-    @GetMapping("/resumen")
-    public Map<String, Object> obtenerResumen() {
-        long[] resumen = mesaService.obtenerResumen();
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("disponibles", resumen[0]);
-        response.put("ocupadas", resumen[1]);
-        response.put("reservadas", resumen[2]);
-        response.put("total", resumen[3]);
-        
-        return response;
-    }
-
-    // GET /api/mesas/contar/{estado}
-    @GetMapping("/contar/{estado}")
-    public Map<String, Long> contarPorEstado(@PathVariable String estado) {
-        return Map.of("cantidad", mesaService.contarPorEstado(estado));
+    @GetMapping("/estadisticas")
+    public ResponseEntity<?> obtenerEstadisticas() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", mesaService.listarMesas().size());
+        stats.put("disponibles", mesaService.contarPorEstado("disponible"));
+        stats.put("ocupadas", mesaService.contarPorEstado("ocupada"));
+        stats.put("reservadas", mesaService.contarPorEstado("reservada"));
+        return ResponseEntity.ok(stats);
     }
 }

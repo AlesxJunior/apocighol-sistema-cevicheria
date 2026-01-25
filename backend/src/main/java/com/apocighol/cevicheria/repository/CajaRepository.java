@@ -11,16 +11,14 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * ==========================================
- * CAJA REPOSITORY
- * ==========================================
- */
 @Repository
 public interface CajaRepository extends JpaRepository<Caja, Long> {
     
-    // Buscar caja por estado
+    // Buscar caja abierta (una sola)
     Optional<Caja> findByEstadoCaja(String estadoCaja);
+    
+    // Buscar TODAS las cajas por estado (lista)
+    List<Caja> findAllByEstadoCajaOrderByFechaAperturaDesc(String estadoCaja);
     
     // Buscar por código
     Optional<Caja> findByCodigoCaja(String codigoCaja);

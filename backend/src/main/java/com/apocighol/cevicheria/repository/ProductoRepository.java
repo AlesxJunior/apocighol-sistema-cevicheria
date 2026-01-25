@@ -9,20 +9,21 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * ========================================== * PRODUCTO REPOSITORY
- * 🔥 Incluye query para generar código secuencial
+ * ==========================================
+ * PRODUCTO REPOSITORY - CORREGIDO
+ * 🔥 Sin query nativa problemática
  * ==========================================
  */
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
     
     // ==========================================
-    // 🔥 GENERACIÓN DE CÓDIGO SECUENCIAL 11 de enero del 2026
+    // 🔥 GENERACIÓN DE CÓDIGO SECUENCIAL
     // ==========================================
     
     /**
-     * Obtiene el código más alto para generar el siguiente
-     * Busca el máximo número en códigos tipo PROD-XXX
+     * Obtiene todos los códigos ordenados descendente
+     * Usamos JPQL en lugar de query nativa para evitar problemas
      */
     @Query("SELECT p.codigoProducto FROM Producto p WHERE p.codigoProducto LIKE 'PROD-%' ORDER BY p.codigoProducto DESC")
     List<String> findAllCodigosOrdenados();
@@ -34,10 +35,11 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     long contarProductos();
     
     /**
-     * Obtener el número máximo de código existente
+     * 🔥 CORREGIDO: Obtener el número máximo usando JPQL
+     * Evita problemas con nombres de columnas en query nativa
      */
-    @Query(value = "SELECT MAX(CAST(SUBSTRING(codigo_producto, 6) AS UNSIGNED)) FROM productos WHERE codigo_producto LIKE 'PROD-%'", nativeQuery = true)
-    Integer obtenerMaximoNumeroCodigoNativo();
+    @Query("SELECT MAX(CAST(SUBSTRING(p.codigoProducto, 6, 10) AS int)) FROM Producto p WHERE p.codigoProducto LIKE 'PROD-%'")
+    Integer obtenerMaximoNumeroCodigo();
     
     // ==========================================
     // BÚSQUEDAS

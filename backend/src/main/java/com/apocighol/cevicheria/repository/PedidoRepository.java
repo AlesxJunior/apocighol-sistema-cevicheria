@@ -11,11 +11,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * ==========================================
- * PEDIDO REPOSITORY
- * ==========================================
- */
 @Repository
 public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     
@@ -39,4 +34,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     
     @Query("SELECT COALESCE(SUM(p.totalPedido), 0) FROM Pedido p WHERE p.fechaPedido = :fecha")
     BigDecimal sumTotalByFechaPedido(@Param("fecha") LocalDate fecha);
+    
+    // Contar pedidos NO servidos de una mesa
+    @Query("SELECT COUNT(p) FROM Pedido p WHERE p.numeroMesa = :numeroMesa AND p.estadoPedido != 'SERVIDO' AND p.estadoPedido != 'COBRADO'")
+    long countPedidosNoServidos(@Param("numeroMesa") Integer numeroMesa);
 }

@@ -1726,3 +1726,60 @@ textarea:focus {
 .productos-venta-container th {
     padding: 12px 15px;
 }
+
+
+
+/* ========================================== */
+/* ESTILOS MESAS - AGREGADO */
+/* ========================================== */
+
+/* BOTONES DE BILLETES PARA COBRO */
+.btn-billete {
+    padding: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-billete:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-billete:active {
+    transform: translateY(0);
+}
+
+/* FORMULARIO COBRO */
+.formulario-cobro {
+    padding: 20px;
+}
+
+.formulario-cobro .campo-form {
+    margin-bottom: 15px;
+}
+
+.formulario-cobro .select-grande {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+/* TEXTAREA MOTIVO */
+.formulario-mesa textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.formulario-mesa textarea:focus {
+    outline: none;
+    border-color: var(--color-primario, #3498db);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
